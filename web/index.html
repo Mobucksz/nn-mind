@@ -223,12 +223,10 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const api = async (path, opts) => {
-  const r = await fetch(path, opts);
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
-  return body;
-};
+// IPC bridge to the Electron main process (see electron/preload.cjs).
+// Resolves with the response body, or throws Error(message) on failure -
+// same contract the old fetch()-based helper had.
+const api = (action, payload) => window.nn.invoke(action, payload);
 const fmt = (x, d = 4) => (x === null || x === undefined || Number.isNaN(x)) ? '—' : Number(x).toFixed(d);
 
 // ---- colormaps -------------------------------------------------
@@ -361,14 +359,11 @@ async function trainModel(name) {
   const epochs = parseInt($(`#ep-${name}`).value) || 60;
   btn.disabled = true; bar.style.display = 'block'; log.textContent = 'queued…';
   try {
-    const { job_id } = await api('/api/train', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_type: name, epochs })
-    });
+    const { job_id } = await api('train', { model_type: name, epochs });
     await new Promise((resolve, reject) => {
       const tick = async () => {
         try {
-          const j = await api(`/api/train/${job_id}/status`);
+          const j = await api('train-status', { job_id });
           fill.style.width = (j.progress || 0) + '%';
           log.textContent = `${j.status} · epoch ${j.current_epoch}/${j.epochs}` +
             (j.loss != null ? ` · loss ${fmt(j.loss, 4)} · val ${fmt(j.val_loss, 4)}` : '');
@@ -391,7 +386,7 @@ async function trainModel(name) {
 
 async function loadSession() {
   try {
-    SESSION = await api('/api/latest-session');
+    SESSION = await api('latest-session');
     $('#sbSymbol').textContent = SESSION.meta.symbol || '—';
     $('#sbDate').textContent = SESSION.meta.sessionDate || '—';
     $('#sbSpot').textContent = fmt(SESSION.spot_avg, 2);
@@ -410,7 +405,7 @@ async function loadSession() {
 }
 
 async function loadModels() {
-  MODELS = await api('/api/models');
+  MODELS = await api('models');
   renderModelList();
   const prevSurf = $('#surfaceModel').value, prevA = $('#cmpA').value, prevB = $('#cmpB').value;
   fillModelSelects();
@@ -423,7 +418,7 @@ async function renderSurface() {
   const model = $('#surfaceModel').value;
   $('#surfaceErr').textContent = ''; $('#surfaceSub').textContent = `Rendering ${model}…`;
   try {
-    const s = await api(`/api/surface?model=${encodeURIComponent(model)}`);
+    const s = await api('surface', { model });
     const { lo, hi } = drawHeatmap($('#surfaceCanvas'), s.prices, s.strikes, s.expiries);
     paintColorbar($('#colorbar'), viridis);
     $('#cbMin').textContent = fmt(lo, 1); $('#cbMax').textContent = fmt(hi, 1);
@@ -438,9 +433,7 @@ async function priceOption() {
   $('#priceErr').textContent = '';
   const body = { S: +$('#inS').value, K: +$('#inK').value, T: +$('#inT').value, model_type: $('#inModel').value };
   try {
-    const r = await api('/api/infer', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
+    const r = await api('infer', body);
     $('#priceVal').textContent = fmt(r.price, 3);
     $('#priceModel').textContent = '· ' + r.model;
     $('#gDelta').textContent = fmt(r.delta, 4);
@@ -458,7 +451,7 @@ async function compare() {
   $('#cmpErr').textContent = '';
   if (a === b) { $('#cmpErr').textContent = 'Pick two different models.'; return; }
   try {
-    const r = await api(`/api/compare?models=${a},${b}`);
+    const r = await api('compare', { models: `${a},${b}` });
     const key = `${a}-${b}`, alt = `${b}-${a}`;
     let diff = r.differences[key];
     if (!diff && r.differences[alt]) diff = r.differences[alt].map(row => row.map(v => -v));
@@ -480,10 +473,16 @@ $('#priceBtn').addEventListener('click', priceOption);
 $('#cmpBtn').addEventListener('click', compare);
 
 (async function init() {
-  await Promise.all([loadSession(), loadModels()]);
-  await renderSurface();
-  await priceOption();
-  await compare();
+  if (!window.nn) { console.error('init: window.nn bridge missing'); return; }
+  try {
+    await Promise.all([loadSession(), loadModels()]);
+    await renderSurface();
+    await priceOption();
+    await compare();
+    console.log('init: dashboard ready');
+  } catch (e) {
+    console.error('init failed:', e.message);
+  }
 })();
 </script>
 </body>

@@ -27,11 +27,13 @@ def list_sessions():
 
     # From OpVis
     if OPVIS_MANIFEST.exists():
-        man = json.loads(OPVIS_MANIFEST.read_text())
+        man = json.loads(OPVIS_MANIFEST.read_text(encoding='utf-8-sig'))
         for s in man.get("sessions", []):
             fp = OPVIS_SESSIONS_DIR / s["file"]
             if "sessions/" in s.get("file", ""):
                 fp = OPVIS_SESSIONS_DIR / s["file"].replace("sessions/", "")
+            elif (OPVIS_SESSIONS_DIR.parent / s['file']).exists():
+                fp = OPVIS_SESSIONS_DIR.parent / s['file']
             if fp.exists():
                 sessions.append({
                     "date": s["date"],

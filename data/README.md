@@ -1,28 +1,38 @@
-# Data Pipeline
+# Data Directory
 
-Connects to IBKR paper account via TWS/Gateway (same as OpVis) to record
-option chain snapshots for training neural network pricers.
+This is where all saved data lives — next to the app, easy to find.
 
-## How it works
+## Structure
 
-1. **IBC** auto-logs into TWS Paper at 8:20 CT each trading day
-2. `record_session.py` connects on port 7497 and records snapshots through market close
-3. Files land in `recordings/` with full IV, greeks, OI, and volume data
-4. `record_daily.ps1` is called by Windows Task Scheduler (Mon-Fri 8:20 CT)
+```
+data/
+├── models/          Trained model checkpoints (.pt files)
+│   ├── mlp.latest.pt       Latest trained MLP
+│   ├── mlp.v1.pt           Previous version (auto-archived)
+│   ├── mlp.v2.pt           Older version
+│   ├── lstm.latest.pt
+│   ├── transformer.latest.pt
+│   └── ensemble.latest.pt
+├── sessions/        IBKR recorded session files (optional local copies)
+├── logs/            Training run logs
+└── README.md        This file
+```
 
-## Files
+## Storage estimates
 
-- `record_session.py` — Copies the same IBKR recorder from OpVis, tuned for ML training
-- `record_daily.ps1` — PowerShell launcher that starts TWS paper if needed, then records
-- `loader.py` (TODO) — Load recorded sessions into numpy/pytorch tensors
-- `features.py` (TODO) — Build feature vectors from chain snapshots
+Each trained model checkpoint is roughly:
+- MLP: ~50 KB
+- LSTM: ~200 KB
+- Transformer: ~500 KB
+- Ensemble: ~1 MB
 
-## IBKR Config
+Training logs are negligible. Session data from one trading day of SPY options (131 snapshots, 21 strikes, 7 expiries) is about 1.5 MB.
 
-Uses the same IBC config as OpVis:
-- Config: `C:\IBC\config.paper.ini`
-- User: Moebuckszz
-- Port: 7497
-- TWS: C:\Jts
+So the entire data directory after months of use would be under 100 MB.
 
-Recording data at `recordings/` dir for training, not just replay.
+## Checkpoint versioning
+
+Every time you train a model, the previous checkpoint gets archived:
+- `mlp.latest.pt` -> `mlp.v1.pt` -> `mlp.v2.pt` -> etc.
+- The app always loads the `.latest.pt` version on startup.
+- Old versions are kept so you can roll back if needed.

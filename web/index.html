@@ -6,18 +6,9 @@
 <title>nn-mind</title>
 <style>
   :root {
-    --bg: #07080c;
-    --panel: #0e1018;
-    --panel-2: #141826;
-    --line: #1e2433;
-    --text: #e6e9f2;
-    --muted: #8a93a8;
-    --accent: #5b8cff;
-    --accent-2: #36e2b4;
-    --warn: #ffb454;
-    --bad: #ff6b81;
-    --good: #36e2b4;
-    --radius: 12px;
+    --bg: #07080c; --panel: #0e1018; --panel-2: #141826; --line: #1e2433;
+    --text: #e6e9f2; --muted: #8a93a8; --accent: #5b8cff; --accent-2: #36e2b4;
+    --warn: #ffb454; --bad: #ff6b81; --good: #36e2b4; --radius: 12px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -30,15 +21,12 @@
     font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  a { color: var(--accent); }
   .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
 
-  /* Header */
   header {
     display: flex; align-items: center; gap: 18px;
     padding: 14px 22px; border-bottom: 1px solid var(--line);
     background: linear-gradient(180deg, rgba(20,24,38,.7), rgba(7,8,12,.4));
-    backdrop-filter: blur(6px);
   }
   .brand { display: flex; align-items: baseline; gap: 10px; }
   .brand .mark {
@@ -48,17 +36,24 @@
   }
   .brand .tag { color: var(--muted); font-size: 12.5px; }
   .session-badge {
-    margin-left: auto; display: flex; gap: 18px; align-items: center;
-    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
-    background: var(--panel);
+    margin-left: auto; display: flex; gap: 16px; align-items: center;
+    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel);
   }
   .session-badge .kv { display: flex; flex-direction: column; line-height: 1.15; }
   .session-badge .kv b { font-size: 13px; }
   .session-badge .kv span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); }
+  .feedtag { font-size: 10.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+    text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .feedtag.live { color: var(--good); border-color: rgba(54,226,180,.5); background: rgba(54,226,180,.1); }
+  .feedtag.test { color: var(--warn); border-color: rgba(255,180,84,.45); background: rgba(255,180,84,.08); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--good); box-shadow: 0 0 10px var(--good); }
+  .dot.live { background: var(--good); box-shadow: 0 0 10px var(--good); animation: pulse 1.4s infinite; }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+  .dot.bad { background: var(--bad); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-  /* Layout */
-  main { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; overflow: hidden; }
+  main { display: grid; grid-template-columns: 330px 1fr; gap: 16px; padding: 16px; overflow: hidden; }
   .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding-right: 4px; }
   .col.right { display: grid; grid-template-rows: auto auto; grid-template-columns: 1fr 1fr; gap: 16px; }
 
@@ -75,7 +70,6 @@
   .stat .v { font-size: 18px; font-weight: 700; }
   .stat .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
 
-  /* Models list */
   .model { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
   .model .top { display: flex; align-items: center; gap: 8px; }
   .model .name { font-weight: 700; }
@@ -94,20 +88,16 @@
   }
   input:focus, select:focus { outline: none; border-color: var(--accent); }
   label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
-  button {
-    cursor: pointer; background: linear-gradient(180deg, #1b2236, #141a2b);
-    border-color: #2a3450; transition: .15s; font-weight: 600;
-  }
+  button { cursor: pointer; background: linear-gradient(180deg, #1b2236, #141a2b); border-color: #2a3450; transition: .15s; font-weight: 600; }
   button:hover { border-color: var(--accent); }
   button.primary { background: linear-gradient(180deg, var(--accent), #3f6fe0); border-color: transparent; color: white; }
-  button.primary:hover { filter: brightness(1.08); }
-  button:disabled { opacity: .5; cursor: default; }
+  button.ghost { background: transparent; }
+  button:disabled { opacity: .45; cursor: default; }
 
   .progress { height: 6px; background: #0b0d15; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
   .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .25s; }
   .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
-  /* Pricer */
   .price-out { display: flex; align-items: baseline; gap: 10px; }
   .price-out .big { font-size: 34px; font-weight: 800; }
   .price-out .cur { color: var(--muted); }
@@ -115,11 +105,9 @@
   .greek { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; }
   .greek .gl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
   .greek .gv { font-size: 16px; font-weight: 700; margin-top: 2px; }
-
   .field-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 
-  /* Canvas / heatmap */
-  .canvas-wrap { position: relative; flex: 1; min-height: 220px; display: flex; gap: 10px; }
+  .canvas-wrap { position: relative; flex: 1; min-height: 210px; display: flex; gap: 10px; }
   canvas { background: #0a0c13; border: 1px solid var(--line); border-radius: 8px; width: 100%; height: 100%; }
   .colorbar { width: 14px; border-radius: 6px; border: 1px solid var(--line); }
   .cb-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
@@ -128,9 +116,15 @@
   .muted { color: var(--muted); }
   .err { color: var(--bad); font-size: 12px; }
   .hint { font-size: 11.5px; color: var(--muted); }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button { border: none; border-radius: 0; padding: 6px 10px; background: transparent; }
-  .seg button.active { background: var(--accent); color: white; }
+
+  /* IBKR panel */
+  .ib-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .ib-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
+  .ib-live { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .ib-live .stat .v { font-size: 15px; }
+  .banner { padding: 8px 12px; border-radius: 8px; font-size: 12px; border: 1px solid; display: none; }
+  .banner.show { display: block; }
+  .banner.error { color: var(--bad); border-color: rgba(255,107,129,.4); background: rgba(255,107,129,.08); }
 </style>
 </head>
 <body>
@@ -141,7 +135,8 @@
       <span class="tag">neural-network options pricer &amp; surface lab</span>
     </div>
     <div class="session-badge" id="sessionBadge">
-      <span class="dot"></span>
+      <span class="dot" id="badgeDot"></span>
+      <span class="feedtag" id="feedTag">no feed</span>
       <div class="kv"><b id="sbSymbol">—</b><span>symbol</span></div>
       <div class="kv"><b id="sbDate">—</b><span>session</span></div>
       <div class="kv"><b id="sbSpot">—</b><span>spot</span></div>
@@ -151,6 +146,40 @@
   <main>
     <!-- LEFT -->
     <div class="col">
+      <div class="banner error" id="backendBanner"></div>
+
+      <div class="card">
+        <h2>IBKR connection</h2>
+        <div class="ib-status"><span class="dot" id="ibDot"></span><span id="ibStatusText">Disconnected</span></div>
+        <div class="sub">Log into IB Gateway / TWS first, then connect. No password is entered here — IBKR's API connects to the running Gateway.</div>
+        <div class="ib-grid">
+          <div><label>Host</label><input id="ibHost" class="mono" value="127.0.0.1"></div>
+          <div><label>Port</label><input id="ibPort" class="mono" value="7497"></div>
+          <div><label>Client</label><input id="ibClient" class="mono" value="17"></div>
+        </div>
+        <div class="toolbar">
+          <button class="primary" id="ibConnect">Connect</button>
+          <button class="ghost" id="ibDisconnect" disabled>Disconnect</button>
+          <span class="spacer"></span>
+          <button class="ghost" id="ibTest" title="Synthetic drifting feed — no broker needed. Clearly labelled, never real IBKR.">Test feed</button>
+        </div>
+        <div class="hint">Ports: 7497 paper TWS · 7496 live TWS · 4001/4002 IB Gateway.</div>
+        <div id="ibStreamRow" style="display:none; border-top:1px solid var(--line); padding-top:12px; display:none; flex-direction:column; gap:10px;">
+          <div class="toolbar">
+            <label style="margin:0">symbol</label><input id="ibSymbol" class="mono" value="SPY" style="width:80px">
+            <label style="margin:0">every</label><input id="ibInterval" class="mono" value="5" style="width:54px"><span class="muted">s</span>
+            <span class="spacer"></span>
+            <button class="primary" id="ibStart">Start stream</button>
+            <button class="ghost" id="ibStop" disabled>Stop</button>
+          </div>
+          <div class="ib-live">
+            <div class="stat"><div class="v mono" id="ibSpot">—</div><div class="l">spot</div></div>
+            <div class="stat"><div class="v mono" id="ibSnaps">0</div><div class="l">snapshots</div></div>
+            <div class="stat"><div class="v mono" id="ibLast">—</div><div class="l">last tick</div></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h2>Recorded session</h2>
         <div class="sub" id="sessionSub">loading…</div>
@@ -159,7 +188,7 @@
 
       <div class="card">
         <h2>Models</h2>
-        <div class="sub">Closed-form are always ready. Neural nets train on the recorded surface.</div>
+        <div class="sub">Closed-form are always ready. Neural nets train on the live/recorded surface.</div>
         <div id="modelList" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
     </div>
@@ -205,9 +234,7 @@
         <div class="toolbar">
           <h2 style="margin:0">Model comparison</h2>
           <span class="spacer"></span>
-          <select id="cmpA"></select>
-          <span class="muted">vs</span>
-          <select id="cmpB"></select>
+          <select id="cmpA"></select><span class="muted">vs</span><select id="cmpB"></select>
           <button id="cmpBtn">Diff</button>
         </div>
         <div class="sub" id="cmpSub">Per-node price difference (A − B). Red = A richer, blue = B richer.</div>
@@ -223,78 +250,59 @@
 
 <script>
 const $ = s => document.querySelector(s);
-const api = async (path, opts) => {
-  const r = await fetch(path, opts);
-  const body = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(body.error || ('HTTP ' + r.status));
-  return body;
-};
 const fmt = (x, d = 4) => (x === null || x === undefined || Number.isNaN(x)) ? '—' : Number(x).toFixed(d);
 
+// ---- IPC bridge (replaces fetch). window.api is injected by preload.cjs. ----
+const invoke = (channel, payload) => {
+  if (!window.api || !window.api.invoke) {
+    return Promise.reject(new Error('Backend bridge unavailable (run inside the nn-mind app, not a browser).'));
+  }
+  return window.api.invoke(channel, payload);
+};
+
 // ---- colormaps -------------------------------------------------
-// Viridis-ish ramp for sequential (surface), no external deps.
 function viridis(t) {
   t = Math.max(0, Math.min(1, t));
-  const stops = [
-    [68,1,84],[59,82,139],[33,144,140],[93,201,99],[253,231,37]
-  ];
+  const stops = [[68,1,84],[59,82,139],[33,144,140],[93,201,99],[253,231,37]];
   const f = t * (stops.length - 1), i = Math.floor(f), r = f - i;
   const a = stops[i], b = stops[Math.min(i + 1, stops.length - 1)];
   return [Math.round(a[0]+(b[0]-a[0])*r), Math.round(a[1]+(b[1]-a[1])*r), Math.round(a[2]+(b[2]-a[2])*r)];
 }
-// Diverging blue-white-red for comparison.
 function diverging(t) {
   t = Math.max(-1, Math.min(1, t));
-  if (t < 0) { const u = 1 + t; return [Math.round(54+201*u), Math.round(120+135*u), Math.round(255)]; }
+  if (t < 0) { const u = 1 + t; return [Math.round(54+201*u), Math.round(120+135*u), 255]; }
   const u = 1 - t; return [255, Math.round(107+148*u), Math.round(129+126*u)];
 }
-
 function paintColorbar(el, fn) {
   const h = 120, c = document.createElement('canvas'); c.width = 14; c.height = h;
   const ctx = c.getContext('2d');
-  for (let y = 0; y < h; y++) {
-    const [r,g,b] = fn(1 - y / (h - 1));
-    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, y, 14, 1);
-  }
-  el.style.background = `url(${c.toDataURL()})`; el.style.backgroundSize = 'cover';
-  el.style.height = h + 'px';
+  for (let y = 0; y < h; y++) { const [r,g,b] = fn(1 - y / (h - 1)); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, y, 14, 1); }
+  el.style.background = `url(${c.toDataURL()})`; el.style.backgroundSize = 'cover'; el.style.height = h + 'px';
 }
-
-// ---- heatmap renderer ------------------------------------------
 function drawHeatmap(canvas, matrix, strikes, expiries, opts = {}) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.clientWidth, H = canvas.clientHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
+  canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
   const padL = 54, padB = 30, padT = 8, padR = 8;
   const plotW = W - padL - padR, plotH = H - padT - padB;
   const NE = matrix.length, NS = matrix[0].length;
-
   let lo = Infinity, hi = -Infinity;
   for (const row of matrix) for (const v of row) { if (v < lo) lo = v; if (v > hi) hi = v; }
   const diverge = opts.diverge;
   if (diverge) { const m = Math.max(Math.abs(lo), Math.abs(hi)) || 1; lo = -m; hi = m; }
   const span = (hi - lo) || 1;
-
   const cw = plotW / NS, ch = plotH / NE;
-  for (let i = 0; i < NE; i++) {
-    for (let j = 0; j < NS; j++) {
-      const v = matrix[i][j];
-      const t = diverge ? v / Math.max(Math.abs(lo), Math.abs(hi)) : (v - lo) / span;
-      const [r,g,b] = (diverge ? diverging(t) : viridis(t));
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(padL + j * cw, padT + i * ch, cw + 0.6, ch + 0.6);
-    }
+  for (let i = 0; i < NE; i++) for (let j = 0; j < NS; j++) {
+    const v = matrix[i][j];
+    const t = diverge ? v / Math.max(Math.abs(lo), Math.abs(hi)) : (v - lo) / span;
+    const [r,g,b] = (diverge ? diverging(t) : viridis(t));
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(padL + j * cw, padT + i * ch, cw + 0.6, ch + 0.6);
   }
-  // axes labels
-  ctx.fillStyle = '#8a93a8'; ctx.font = '10px ui-monospace, monospace';
-  ctx.textAlign = 'center';
+  ctx.fillStyle = '#8a93a8'; ctx.font = '10px ui-monospace, monospace'; ctx.textAlign = 'center';
   const xstep = Math.ceil(NS / 7);
-  for (let j = 0; j < NS; j += xstep) {
-    ctx.fillText(Math.round(strikes[j]), padL + (j + .5) * cw, H - padB + 14);
-  }
+  for (let j = 0; j < NS; j += xstep) ctx.fillText(Math.round(strikes[j]), padL + (j + .5) * cw, H - padB + 14);
   ctx.fillText('strike', padL + plotW / 2, H - 4);
   ctx.textAlign = 'right';
   const ystep = Math.ceil(NE / 6) || 1;
@@ -316,42 +324,32 @@ function modelBadge(m) {
   if (m.type === 'bs' || m.type === 'binomial') return '<span class="badge cf">closed-form</span>';
   return m.trained ? '<span class="badge trained">trained</span>' : '<span class="badge untrained">untrained</span>';
 }
-
 function fillModelSelects() {
   const opts = MODELS.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
   for (const id of ['#surfaceModel', '#inModel', '#cmpA', '#cmpB']) $(id).innerHTML = opts;
-  $('#surfaceModel').value = 'bs';
-  $('#inModel').value = 'bs';
+  $('#surfaceModel').value = 'bs'; $('#inModel').value = 'bs';
   $('#cmpA').value = 'binomial'; $('#cmpB').value = 'bs';
 }
-
 function renderModelList() {
   const host = $('#modelList'); host.innerHTML = '';
   for (const m of MODELS) {
     const isNN = !(m.type === 'bs' || m.type === 'binomial');
     const el = document.createElement('div'); el.className = 'model';
     el.innerHTML = `
-      <div class="top">
-        <span class="name">${m.name}</span>
-        ${modelBadge(m)}
-        ${m.has_attention ? '<span class="badge attn">attention</span>' : ''}
-      </div>
+      <div class="top"><span class="name">${m.name}</span>${modelBadge(m)}
+        ${m.has_attention ? '<span class="badge attn">attention</span>' : ''}</div>
       <div class="desc">${m.description || ''}</div>
       ${isNN ? `
         <div class="row">
           <input class="mono" type="number" value="60" min="1" max="500" id="ep-${m.name}">
-          <span class="hint">epochs</span>
-          <span style="flex:1"></span>
+          <span class="hint">epochs</span><span style="flex:1"></span>
           <button data-train="${m.name}">${m.trained ? 'Retrain' : 'Train'}</button>
         </div>
         <div class="progress" style="display:none"><i></i></div>
-        <div class="hint mono" data-log="${m.name}"></div>
-      ` : ''}
-    `;
+        <div class="hint mono" data-log="${m.name}"></div>` : ''}`;
     host.appendChild(el);
   }
-  host.querySelectorAll('[data-train]').forEach(b =>
-    b.addEventListener('click', () => trainModel(b.dataset.train)));
+  host.querySelectorAll('[data-train]').forEach(b => b.addEventListener('click', () => trainModel(b.dataset.train)));
 }
 
 async function trainModel(name) {
@@ -361,14 +359,11 @@ async function trainModel(name) {
   const epochs = parseInt($(`#ep-${name}`).value) || 60;
   btn.disabled = true; bar.style.display = 'block'; log.textContent = 'queued…';
   try {
-    const { job_id } = await api('/api/train', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_type: name, epochs })
-    });
+    const { job_id } = await invoke('train.start', { model_type: name, epochs });
     await new Promise((resolve, reject) => {
       const tick = async () => {
         try {
-          const j = await api(`/api/train/${job_id}/status`);
+          const j = await invoke('train.status', { job_id });
           fill.style.width = (j.progress || 0) + '%';
           log.textContent = `${j.status} · epoch ${j.current_epoch}/${j.epochs}` +
             (j.loss != null ? ` · loss ${fmt(j.loss, 4)} · val ${fmt(j.val_loss, 4)}` : '');
@@ -376,41 +371,48 @@ async function trainModel(name) {
           if (j.status === 'failed') return reject(new Error(j.error || 'training failed'));
           setTimeout(tick, 400);
         } catch (e) { reject(e); }
-      };
-      tick();
+      }; tick();
     });
     log.textContent = 'done ✓ ' + log.textContent;
     await loadModels();
     if ($('#surfaceModel').value === name) renderSurface();
-  } catch (e) {
-    log.innerHTML = `<span class="err">${e.message}</span>`;
-  } finally {
-    btn.disabled = false;
-  }
+  } catch (e) { log.innerHTML = `<span class="err">${e.message}</span>`; }
+  finally { btn.disabled = false; }
+}
+
+function setBadge(session) {
+  const feed = (session && session.meta && session.meta.feed) || null;
+  const source = (session && session.meta && session.meta.source) || null;
+  const tag = $('#feedTag'), dot = $('#badgeDot');
+  if (source === 'IBKR') { tag.textContent = 'live · IBKR'; tag.className = 'feedtag live'; dot.className = 'dot live'; }
+  else if (feed === 'selftest' || source === 'test') { tag.textContent = 'test feed'; tag.className = 'feedtag test'; dot.className = 'dot warn'; }
+  else if (session) { tag.textContent = (source || 'recording'); tag.className = 'feedtag'; dot.className = 'dot on'; }
+  else { tag.textContent = 'no feed'; tag.className = 'feedtag'; dot.className = 'dot'; }
 }
 
 async function loadSession() {
   try {
-    SESSION = await api('/api/latest-session');
+    SESSION = await invoke('session.latest');
     $('#sbSymbol').textContent = SESSION.meta.symbol || '—';
     $('#sbDate').textContent = SESSION.meta.sessionDate || '—';
     $('#sbSpot').textContent = fmt(SESSION.spot_avg, 2);
-    $('#sessionSub').textContent =
-      `${SESSION.meta.source || 'recording'} · ${SESSION.nframes} frames`;
+    $('#sessionSub').textContent = `${SESSION.meta.source || 'recording'} · ${SESSION.nframes} frames`;
     const e = SESSION.expiries;
     $('#sessionStats').innerHTML = `
       <div class="stat"><div class="v">${SESSION.strikes.length}</div><div class="l">strikes</div></div>
       <div class="stat"><div class="v">${e.length}</div><div class="l">expiries</div></div>
       <div class="stat"><div class="v mono">${fmt(SESSION.spot_min,1)}–${fmt(SESSION.spot_max,1)}</div><div class="l">spot range</div></div>
-      <div class="stat"><div class="v mono">${e.length?e[0].days+'–'+e[e.length-1].days+'d':'—'}</div><div class="l">expiry span</div></div>
-    `;
+      <div class="stat"><div class="v mono">${e.length?e[0].days+'–'+e[e.length-1].days+'d':'—'}</div><div class="l">expiry span</div></div>`;
+    setBadge(SESSION);
   } catch (e) {
-    $('#sessionSub').innerHTML = `<span class="err">${e.message}</span>`;
+    SESSION = null; setBadge(null);
+    $('#sessionSub').innerHTML = `<span class="muted">${e.message}</span>`;
+    $('#sessionStats').innerHTML = '';
   }
 }
 
 async function loadModels() {
-  MODELS = await api('/api/models');
+  MODELS = await invoke('models.list');
   renderModelList();
   const prevSurf = $('#surfaceModel').value, prevA = $('#cmpA').value, prevB = $('#cmpB').value;
   fillModelSelects();
@@ -423,7 +425,7 @@ async function renderSurface() {
   const model = $('#surfaceModel').value;
   $('#surfaceErr').textContent = ''; $('#surfaceSub').textContent = `Rendering ${model}…`;
   try {
-    const s = await api(`/api/surface?model=${encodeURIComponent(model)}`);
+    const s = await invoke('surface', { model });
     const { lo, hi } = drawHeatmap($('#surfaceCanvas'), s.prices, s.strikes, s.expiries);
     paintColorbar($('#colorbar'), viridis);
     $('#cbMin').textContent = fmt(lo, 1); $('#cbMax').textContent = fmt(hi, 1);
@@ -438,19 +440,12 @@ async function priceOption() {
   $('#priceErr').textContent = '';
   const body = { S: +$('#inS').value, K: +$('#inK').value, T: +$('#inT').value, model_type: $('#inModel').value };
   try {
-    const r = await api('/api/infer', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-    });
+    const r = await invoke('infer', body);
     $('#priceVal').textContent = fmt(r.price, 3);
     $('#priceModel').textContent = '· ' + r.model;
-    $('#gDelta').textContent = fmt(r.delta, 4);
-    $('#gGamma').textContent = fmt(r.gamma, 5);
-    $('#gVega').textContent = fmt(r.vega, 4);
-    $('#gTheta').textContent = fmt(r.theta, 4);
-  } catch (e) {
-    $('#priceErr').textContent = e.message;
-    $('#priceVal').textContent = '—';
-  }
+    $('#gDelta').textContent = fmt(r.delta, 4); $('#gGamma').textContent = fmt(r.gamma, 5);
+    $('#gVega').textContent = fmt(r.vega, 4); $('#gTheta').textContent = fmt(r.theta, 4);
+  } catch (e) { $('#priceErr').textContent = e.message; $('#priceVal').textContent = '—'; }
 }
 
 async function compare() {
@@ -458,7 +453,7 @@ async function compare() {
   $('#cmpErr').textContent = '';
   if (a === b) { $('#cmpErr').textContent = 'Pick two different models.'; return; }
   try {
-    const r = await api(`/api/compare?models=${a},${b}`);
+    const r = await invoke('compare', { models: [a, b] });
     const key = `${a}-${b}`, alt = `${b}-${a}`;
     let diff = r.differences[key];
     if (!diff && r.differences[alt]) diff = r.differences[alt].map(row => row.map(v => -v));
@@ -468,22 +463,98 @@ async function compare() {
     paintColorbar($('#cmpColorbar'), t => diverging(t * 2 - 1));
     $('#cmpMin').textContent = fmt(lo, 1); $('#cmpMax').textContent = fmt(hi, 1);
     $('#cmpSub').textContent = `${a} − ${b} · max |Δ| ${fmt(Math.max(Math.abs(lo),Math.abs(hi)),2)}`;
-  } catch (e) {
-    $('#cmpErr').textContent = e.message;
-  }
+  } catch (e) { $('#cmpErr').textContent = e.message; }
 }
 
-// wire up
+// ---- IBKR connection UI ----------------------------------------
+function applyIbStatus(s) {
+  const dot = $('#ibDot'), txt = $('#ibStatusText');
+  const connected = s && s.connected;
+  const streaming = s && s.streaming;
+  const test = s && s.mode === 'selftest';
+  $('#ibConnect').disabled = connected;
+  $('#ibDisconnect').disabled = !connected;
+  $('#ibStreamRow').style.display = connected ? 'flex' : 'none';
+  $('#ibStart').disabled = !connected || streaming;
+  $('#ibStop').disabled = !streaming;
+  if (s && s.error) { dot.className = 'dot bad'; txt.innerHTML = `<span class="err">${s.error}</span>`; }
+  else if (streaming) { dot.className = 'dot live'; txt.textContent = (test ? 'Test feed' : 'IBKR') + ` streaming · ${s.symbol || ''}`; }
+  else if (connected) { dot.className = 'dot on'; txt.textContent = (test ? 'Test feed connected' : `Connected ${s.host}:${s.port}`); }
+  else { dot.className = 'dot'; txt.textContent = 'Disconnected'; }
+  if (s && s.spot != null) $('#ibSpot').textContent = fmt(s.spot, 2);
+  if (s && s.snapshots != null) $('#ibSnaps').textContent = s.snapshots;
+  if (s && s.last) $('#ibLast').textContent = s.last;
+}
+
+async function ibConnect(host) {
+  const payload = host === 'selftest'
+    ? { host: 'selftest', port: 0, client_id: 0 }
+    : { host: $('#ibHost').value.trim(), port: +$('#ibPort').value, client_id: +$('#ibClient').value };
+  $('#ibStatusText').textContent = 'Connecting…'; $('#ibDot').className = 'dot warn';
+  try { applyIbStatus(await invoke('ibkr.connect', payload)); }
+  catch (e) { applyIbStatus({ connected: false, error: e.message }); }
+}
+async function ibStartStream() {
+  await invoke('ibkr.stream.start', {
+    symbol: $('#ibSymbol').value.trim() || 'SPY',
+    interval_sec: +$('#ibInterval').value || 5,
+    num_expiries: 5, strikes_each_side: 10,
+  });
+  applyIbStatus(await invoke('ibkr.status'));
+}
+
+let _refreshTimer = null;
+function liveRefresh() {
+  // Coalesce rapid snapshot events into one dashboard refresh.
+  if (_refreshTimer) return;
+  _refreshTimer = setTimeout(async () => {
+    _refreshTimer = null;
+    await loadSession();
+    await renderSurface();
+  }, 300);
+}
+
+function wireEvents() {
+  if (!window.api || !window.api.onEvent) return;
+  window.api.onEvent((msg) => {
+    if (msg.event === 'ibkr.status') applyIbStatus(msg.data);
+    else if (msg.event === 'ibkr.snapshot') {
+      $('#ibSpot').textContent = fmt(msg.data.spot, 2);
+      $('#ibSnaps').textContent = msg.data.snapshots;
+      $('#ibLast').textContent = (msg.data.t || '').slice(11, 19) || '—';
+      liveRefresh();
+    } else if (msg.event === 'sidecar.error' || msg.event === 'sidecar.exit') {
+      const b = $('#backendBanner'); b.className = 'banner error show';
+      b.textContent = msg.event === 'sidecar.exit'
+        ? `Python sidecar exited (code ${msg.data.code}). Restart the app.`
+        : msg.data.message;
+    }
+  });
+}
+
+// wire controls
 $('#surfaceRefresh').addEventListener('click', renderSurface);
 $('#surfaceModel').addEventListener('change', renderSurface);
 $('#priceBtn').addEventListener('click', priceOption);
 $('#cmpBtn').addEventListener('click', compare);
+$('#ibConnect').addEventListener('click', () => ibConnect());
+$('#ibTest').addEventListener('click', () => ibConnect('selftest'));
+$('#ibDisconnect').addEventListener('click', async () => applyIbStatus(await invoke('ibkr.disconnect')));
+$('#ibStart').addEventListener('click', ibStartStream);
+$('#ibStop').addEventListener('click', async () => { await invoke('ibkr.stream.stop'); applyIbStatus(await invoke('ibkr.status')); });
 
 (async function init() {
-  await Promise.all([loadSession(), loadModels()]);
-  await renderSurface();
-  await priceOption();
-  await compare();
+  wireEvents();
+  if (!window.api) {
+    const b = $('#backendBanner'); b.className = 'banner error show';
+    b.textContent = 'Backend bridge unavailable — open via the nn-mind app, not a browser.';
+  }
+  try { applyIbStatus(await invoke('ibkr.status')); } catch (_) {}
+  await loadModels().catch(() => {});
+  await loadSession().catch(() => {});
+  await renderSurface().catch(() => {});
+  await priceOption().catch(() => {});
+  await compare().catch(() => {});
 })();
 </script>
 </body>

@@ -38,8 +38,7 @@ def load_saved_models():
             try:
                 pricer = create_pricer(model_type)
                 ckpt_path = os.path.join(MODEL_DIR, fname)
-                pricer.load(ckpt_path)
-                pricer.is_trained = True
+                pricer.load(ckpt_path)  # restores the trained flag from the checkpoint
                 _model_cache[model_type] = pricer
             except Exception as e:
                 print(f"Failed to load {fname}: {e}")

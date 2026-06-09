@@ -30,9 +30,18 @@ from models import create_pricer, OptionPricer
 app = Flask(__name__, static_folder=None)
 CORS(app)
 
-# Canvas directory for serving frontend
+# Frontend lives in the repo (web/), reproducible anywhere. The legacy canvas
+# directory is kept as a fallback so older local setups keep working.
+WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CANVAS_DIR = os.path.join(os.path.expanduser("~"), ".openclaw", "canvas", "nn-mind")
 os.makedirs(CANVAS_DIR, exist_ok=True)
+
+
+def _serve(filename):
+    """Serve a static file from web/, falling back to the canvas dir."""
+    if os.path.exists(os.path.join(WEB_DIR, filename)):
+        return send_from_directory(WEB_DIR, filename)
+    return send_from_directory(CANVAS_DIR, filename)
 
 # Default session for reference (preload BS model)
 _bs_pricer = create_pricer("bs")
@@ -43,13 +52,13 @@ _bs_pricer = create_pricer("bs")
 @app.route("/")
 def index():
     """Serve the dashboard HTML."""
-    return send_from_directory(CANVAS_DIR, "index.html")
+    return _serve("index.html")
 
 
 @app.route("/<path:path>")
 def static_files(path):
-    """Serve static files from canvas dir (JS libs, etc.)."""
-    return send_from_directory(CANVAS_DIR, path)
+    """Serve static files (JS libs, etc.) from web/ or the canvas dir."""
+    return _serve(path)
 
 
 # ── Training API ─────────────────────────────────────────
@@ -315,11 +324,11 @@ def api_attention():
 # ── Main ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Ensure canvas dir exists with index.html
-    index_path = os.path.join(CANVAS_DIR, "index.html")
-    if not os.path.exists(index_path):
-        print(f"WARNING: Frontend not found at {index_path}")
-        print("Create index.html in the canvas directory before opening the app.")
+    # Ensure a frontend is available (web/ in repo, or legacy canvas dir)
+    if not (os.path.exists(os.path.join(WEB_DIR, "index.html"))
+            or os.path.exists(os.path.join(CANVAS_DIR, "index.html"))):
+        print(f"WARNING: Frontend not found in {WEB_DIR} or {CANVAS_DIR}")
+        print("Add index.html under web/ before opening the app.")
 
     port = int(os.environ.get("PORT", 7891))
     print(f"  nn-mind server starting on http://127.0.0.1:{port}")

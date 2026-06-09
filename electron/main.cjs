@@ -1,55 +1,61 @@
-// Electron wrapper for nn-mind - loads the Flask server in a native window.
-const { app, BrowserWindow } = require('electron');
-const { spawn } = require('child_process');
+// Electron entry point for nn-mind. Pure Electron - no Python, no Flask.
+// All option-pricing and NN training runs in this (Node) main process via
+// TensorFlow.js; the renderer talks to it over an IPC bridge (see preload.cjs).
+
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
-const PORT = 7891;
-const FLASK_DIR = path.join(__dirname, '..');
-const PYTHON = 'C:\\Users\\Bryce\\AppData\\Local\\Python\\bin\\python.exe';
+const { handle } = require('../src/handlers');
+const worker = require('../src/worker');
 
 let mainWindow = null;
-let flask = null;
-
-function startFlask() {
-  flask = spawn(PYTHON, ['app.py'], {
-    cwd: FLASK_DIR,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-  });
-  flask.stdout.on('data', (d) => console.log(d.toString()));
-  flask.stderr.on('data', (d) => console.error(d.toString()));
-  flask.on('exit', (code) => { if (code !== 0) console.error('Flask exited:', code); });
-}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1440, height: 900, minWidth: 1024, minHeight: 680,
+    width: 1440,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 680,
     backgroundColor: '#07080c',
     title: 'nn-mind',
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
   });
-  mainWindow.loadURL('http://127.0.0.1:' + PORT);
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.loadFile(path.join(__dirname, '..', 'web', 'index.html'));
+
+  // Surface renderer-side logs and load failures in the main process console.
+  const wc = mainWindow.webContents;
+  wc.on('console-message', (_e, level, message) => console.log(`[renderer] ${message}`));
+  wc.on('did-fail-load', (_e, code, desc) => console.error(`[renderer] load failed ${code}: ${desc}`));
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
-app.on('ready', () => {
-  startFlask();
-  // Wait for Flask to be ready, then open
-  const check = () => {
-    const http = require('http');
-    const req = http.get('http://127.0.0.1:' + PORT, () => { createWindow(); });
-    req.on('error', () => setTimeout(check, 500));
-    req.end();
-  };
-  setTimeout(check, 1500);
+// Single IPC channel; the renderer calls window.nn.invoke(action, payload).
+ipcMain.handle('nn:invoke', async (_event, action, payload) => {
+  return handle(action, payload);
+});
+
+app.on('ready', async () => {
+  // Restore any previously trained model checkpoints before opening the window.
+  try {
+    await worker.loadSavedModels();
+  } catch (e) {
+    console.error('Failed to load saved models:', e);
+  }
+  createWindow();
 });
 
 app.on('window-all-closed', () => {
-  if (flask) flask.kill();
   app.quit();
 });
 
-app.on('before-quit', () => {
-  if (flask) flask.kill();
+app.on('activate', () => {
+  if (mainWindow === null) createWindow();
 });

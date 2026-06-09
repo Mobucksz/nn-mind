@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nn-mind - 3D</title>
+<style>
+  /* Theme aligned with OpVis (the sibling OptionScope 3D app): teal accent,
+     Inter, translucent blurred panels, hairline borders, readout labels. */
+  :root {
+    --bg: #07080c;
+    --bg-grad: radial-gradient(1400px 900px at 78% -25%, #11141d 0%, #07080c 55%);
+    --panel: rgba(14, 16, 22, 0.92);
+    --panel-solid: #0c0e14;
+    --panel-2: #14161f;
+    --hi: rgba(255, 255, 255, 0.045);
+    --line: rgba(255, 255, 255, 0.07);
+    --line-2: rgba(255, 255, 255, 0.13);
+    --shadow: 0 1px 0 var(--hi) inset, 0 14px 34px rgba(0, 0, 0, 0.5);
+    --text: #eef1f6;
+    --muted: #98a1b2;
+    --text-3: #59616f;
+    --accent: #4fe3c1;
+    --accent-ink: #04130f;
+    --accent-2: #6aa8ff;
+    --warn: #f5c451;
+    --bad: #ff7a90;
+    --good: #4fe3c1;
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg-grad), var(--bg);
+    color: var(--text);
+    font: 14px/1.5 var(--font);
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  /* Full-bleed stage: the 3D canvas fills the window; all chrome floats over it. */
+  #viewport { position: fixed; inset: 0; z-index: 0; }
+  #viewport canvas { display: block; }
+
+  /* Header - floating, transparent gradient, click-through so you can orbit
+     the canvas underneath it (interactive children re-enable pointer events). */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; height: 60px;
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 22px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(8, 9, 13, 0.94) 0%, rgba(8, 9, 13, 0.55) 70%, rgba(8, 9, 13, 0) 100%);
+    pointer-events: none; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .brand-mark {
+    color: var(--accent); font-size: 18px; line-height: 1;
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border: 1px solid var(--line-2); border-radius: 9px;
+    background: linear-gradient(180deg, rgba(79, 227, 193, 0.12), rgba(79, 227, 193, 0.03));
+  }
+  .brand .brand-name { font-weight: 700; letter-spacing: 0.12em; font-size: 16px; }
+  .brand .brand-name b { color: var(--accent); font-weight: 700; }
+  .brand .brand-sub { color: var(--text-3); font-size: 10px; letter-spacing: 0.18em; border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
+
+  .session-badge { margin-left: auto; display: flex; align-items: center; gap: 24px; }
+  .readout { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
+  .readout label { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+  .readout span { font-size: 15px; font-weight: 600; }
+  .readout span.accent { color: var(--accent); font-size: 18px; font-weight: 700; }
+  .source-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #1a1405; background: var(--warn); border-radius: 6px; padding: 5px 10px; }
+
+  /* Floating left control rail */
+  .rail {
+    position: fixed; top: 72px; left: 16px; width: 320px; bottom: 16px;
+    display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px;
+    z-index: 10;
+  }
+  .rail::-webkit-scrollbar { width: 9px; }
+  .rail::-webkit-scrollbar-track { background: transparent; }
+  .rail::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
+  .rail::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); backdrop-filter: blur(12px);
+    padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0;
+  }
+  .card h2 {
+    margin: 0; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .card h2::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px -1px var(--accent); flex: none; }
+  .card .sub { font-size: 12px; color: var(--muted); margin-top: -4px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .stat .v { font-size: 18px; font-weight: 700; }
+  .stat .l { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 2px; }
+
+  .model { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
+  .model .top { display: flex; align-items: center; gap: 8px; }
+  .model .name { font-weight: 700; letter-spacing: 0.02em; }
+  .model .desc { font-size: 11.5px; color: var(--muted); }
+  .badge { font-size: 9px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+  .badge.trained { color: var(--accent); border-color: rgba(79, 227, 193, 0.4); background: rgba(79, 227, 193, 0.08); }
+  .badge.untrained { color: var(--warn); border-color: rgba(245, 196, 81, 0.35); background: rgba(245, 196, 81, 0.07); }
+  .badge.cf { color: var(--accent-2); border-color: rgba(106, 168, 255, 0.4); background: rgba(106, 168, 255, 0.08); }
+  .badge.attn { color: #c08bff; border-color: rgba(192, 139, 255, 0.4); background: rgba(192, 139, 255, 0.08); }
+  .model .row { display: flex; gap: 8px; align-items: center; }
+  .model .row input { width: 64px; }
+
+  input, select, button {
+    font: inherit; color: var(--text);
+    background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 10px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 227, 193, 0.12); }
+  label { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; display: block; margin-bottom: 4px; font-weight: 600; }
+  button { cursor: pointer; transition: 0.15s; font-weight: 600; }
+  button:hover { border-color: var(--accent); }
+  button.primary {
+    background: linear-gradient(180deg, #5cefcc, #3ccfae); border: none;
+    color: var(--accent-ink); font-weight: 700; letter-spacing: 0.02em;
+  }
+  button.primary:hover { filter: brightness(1.06); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .progress { height: 6px; background: var(--panel-solid); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .25s; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .hint { font-size: 11.5px; color: var(--muted); }
+  .err { color: var(--bad); font-size: 12px; min-height: 14px; }
+  .muted { color: var(--muted); }
+  .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .switch input { width: auto; accent-color: var(--accent); }
+
+  /* Pricer */
+  .price-out { display: flex; align-items: baseline; gap: 10px; }
+  .price-out .big { font-size: 34px; font-weight: 800; color: var(--accent); }
+  .price-out .cur { color: var(--text-3); }
+  .greeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .greek { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; }
+  .greek .gl { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; }
+  .greek .gv { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .field-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  /* Floating top toolbar - sits to the right of the rail, below the header. */
+  .stage-top { position: fixed; top: 72px; left: 352px; right: 16px; z-index: 10; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .stage-top > * { pointer-events: auto; }
+  .glass { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; backdrop-filter: blur(12px); box-shadow: var(--shadow); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; padding: 7px 12px; background: transparent; font-size: 12.5px; font-weight: 600; }
+  .seg button.active { background: var(--accent); color: var(--accent-ink); }
+  .ctl-group { display: flex; align-items: center; gap: 8px; }
+  .ctl-group select { padding: 6px 8px; }
+  .ctl-group .vs { color: var(--text-3); font-size: 12px; }
+  .spacer { flex: 1; }
+  .icon-btn { padding: 7px 11px; font-size: 12.5px; }
+  .slider { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .slider input { width: 90px; accent-color: var(--accent); }
+
+  .stage-title { position: fixed; left: 352px; bottom: 16px; z-index: 10; font-size: 12.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(12px); }
+
+  .legend { position: fixed; right: 16px; bottom: 16px; z-index: 10; display: flex; align-items: stretch; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(12px); }
+  .legend .lab { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; align-self: center; max-width: 90px; }
+  .legend canvas { width: 12px; height: 86px; border-radius: 4px; border: 1px solid var(--line); }
+  .legend .ticks { display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+  #hoverTip { position: fixed; display: none; z-index: 40; pointer-events: none; background: rgba(8, 9, 13, 0.94); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 9px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; box-shadow: var(--shadow); }
+  #hoverTip b { color: var(--accent); }
+  #hoverTip span { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; }
+
+  .hint-controls { position: fixed; right: 16px; top: 120px; z-index: 9; font-size: 10.5px; color: var(--text-3); text-align: right; line-height: 1.6; opacity: .8; letter-spacing: 0.04em; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="viewport"></div>
+
+<header>
+    <div class="brand">
+      <span class="brand-mark">&#9709;</span>
+      <span class="brand-name">nn<b>-mind</b></span>
+      <span class="brand-sub">3D</span>
+    </div>
+    <div class="session-badge">
+      <div class="readout"><label>Symbol</label><span id="sbSymbol">-</span></div>
+      <div class="readout"><label>Session</label><span id="sbDate">-</span></div>
+      <div class="readout"><label>Spot</label><span id="sbSpot" class="accent">-</span></div>
+      <span class="source-badge">REC</span>
+    </div>
+  </header>
+
+  <!-- Floating control rail -->
+  <div class="rail">
+      <div class="card">
+        <h2>Recorded session</h2>
+        <div class="sub" id="sessionSub">loading...</div>
+        <div class="grid2" id="sessionStats"></div>
+      </div>
+
+      <div class="card">
+        <h2>Single-option pricer</h2>
+        <div class="field-row">
+          <div><label>Spot S</label><input id="inS" class="mono" value="530"></div>
+          <div><label>Strike K</label><input id="inK" class="mono" value="525"></div>
+          <div><label>T (yrs)</label><input id="inT" class="mono" value="0.0822"></div>
+          <div><label>Model</label><select id="inModel"></select></div>
+        </div>
+        <button class="primary" id="priceBtn">Price option</button>
+        <div class="price-out"><span class="big mono" id="priceVal">-</span><span class="cur">USD</span><span class="muted mono" id="priceModel"></span></div>
+        <div class="greeks">
+          <div class="greek"><div class="gl">delta</div><div class="gv mono" id="gDelta">-</div></div>
+          <div class="greek"><div class="gl">gamma</div><div class="gv mono" id="gGamma">-</div></div>
+          <div class="greek"><div class="gl">vega</div><div class="gv mono" id="gVega">-</div></div>
+          <div class="greek"><div class="gl">theta</div><div class="gv mono" id="gTheta">-</div></div>
+        </div>
+        <div class="err" id="priceErr"></div>
+        <div class="hint">The priced point is dropped as a marker on the price surface.</div>
+      </div>
+
+      <div class="card">
+        <h2>Models</h2>
+        <div class="sub">Closed-form are always ready. Neural nets train on the recorded ladder.</div>
+        <label class="switch" style="margin:2px 0"><input id="multiTrain" type="checkbox"> train on all sessions <span id="multiCount" class="hint"></span></label>
+        <div id="modelList" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+  </div>
+
+  <div class="stage-top">
+        <div class="seg glass" id="modeSeg">
+          <button data-mode="price" class="active">Price surface</button>
+          <button data-mode="diff">Comparison</button>
+          <button data-mode="attention">Attention</button>
+        </div>
+
+        <div class="ctl-group glass" id="priceCtl">
+          <label style="margin:0">model</label>
+          <select id="vModel"></select>
+        </div>
+        <div class="ctl-group glass" id="diffCtl" style="display:none">
+          <select id="cmpA"></select><span class="vs">vs</span><select id="cmpB"></select>
+        </div>
+        <div class="ctl-group glass" id="attnCtl" style="display:none">
+          <span class="hint">transformer attention</span>
+          <button id="attnRefresh" class="icon-btn">Refresh</button>
+        </div>
+
+        <span class="spacer"></span>
+
+        <div class="glass slider"><span>height</span><input id="heightSlider" type="range" min="0.2" max="2.5" step="0.1" value="1"></div>
+        <label class="glass switch"><input id="wireToggle" type="checkbox">wireframe</label>
+        <button id="resetView" class="glass icon-btn">Reset view</button>
+      </div>
+
+      <div class="hint-controls">drag to orbit - scroll to zoom - right-drag to pan</div>
+
+      <div class="stage-title"><span id="viewTitle">call-price surface</span> <span class="err" id="viewErr"></span></div>
+
+  <div class="legend">
+    <div class="lab" id="legendLabel">call price ($)</div>
+    <canvas id="legendBar" width="12" height="86"></canvas>
+    <div class="ticks"><span id="legHi">-</span><span id="legMid">-</span><span id="legLo">-</span></div>
+  </div>
+
+<div id="hoverTip"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -251,9 +251,10 @@ HANDLERS = {
 }
 
 # 3D pattern-lab channels (backend/analysis.py)
-from backend.analysis import h_surface3d, h_pca, h_correlation  # noqa: E402
+from backend.analysis import h_surface3d, h_surface_frames, h_pca, h_correlation  # noqa: E402
 HANDLERS.update({
     "surface3d": h_surface3d,
+    "surface.frames": h_surface_frames,
     "analysis.pca": h_pca,
     "analysis.correlation": h_correlation,
 })

@@ -96,6 +96,21 @@ def h_surface3d(payload):
     }
 
 
+def h_surface_frames(payload):
+    """Every frame's IV surface, so the frontend can animate the session:
+    the smile breathing as spot moves is itself the pattern to interpret."""
+    sd = _require_session()
+    iv = sd["data"][:, :, :, 0]          # [NF, NE, NS]
+    return {
+        "frames": iv.tolist(),
+        "spots": sd["spot"].tolist(),
+        "timestamps": list(sd.get("timestamps", [])),
+        "strikes": sd["strikes"].tolist(),
+        "expiry_days": _expiry_days(sd),
+        "n_frames": int(iv.shape[0]),
+    }
+
+
 def h_pca(payload):
     sd = _require_session()
     iv = sd["data"][:, :, :, 0]          # [NF, NE, NS]

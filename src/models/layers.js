@@ -98,6 +98,15 @@ class MultiHeadSelfAttention extends tf.layers.Layer {
     let scores = tf.matMul(q, k, false, true); // [B,H,S,S]
     scores = tf.div(scores, Math.sqrt(this.dHead));
     const attn = tf.softmax(scores, -1);
+
+    // Opt-in: stash the head-averaged attention weights [S,S] for inspection.
+    // Off by default so normal predict() stays allocation-free; the pricer's
+    // attention() method flips it on around a single forward pass.
+    if (this.collectAttention) {
+      if (this.lastAttention) { this.lastAttention.dispose(); this.lastAttention = null; }
+      this.lastAttention = tf.keep(tf.tidy(() => tf.mean(attn, 1).squeeze([0]))); // [S,S]
+    }
+
     let ctx = tf.matMul(attn, v); // [B,H,S,dH]
     ctx = tf.reshape(tf.transpose(ctx, [0, 2, 1, 3]), [batch, seq, this.dModel]); // [B,S,D]
 

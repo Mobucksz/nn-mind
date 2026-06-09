@@ -11,7 +11,11 @@ const { saveModel, loadModel } = require('./fileio');
 
 // Post-norm transformer encoder, matching torch nn.TransformerEncoderLayer
 // defaults (dim_feedforward=2048, relu, dropout, norm after residual).
-function buildTransformer(inputDim = 4, dModel = 64, nHeads = 4, numLayers = 2, dropout = 0.1, dff = 2048) {
+// dff was 2048 (a torch default) which is wildly oversized for a 4-feature,
+// ~150-node IV-surface problem and made CPU training ~20s/epoch. 256 keeps the
+// model expressive while cutting per-epoch cost by ~8x. Saved checkpoints are
+// self-describing, so older 2048-wide models still load fine.
+function buildTransformer(inputDim = 4, dModel = 64, nHeads = 4, numLayers = 2, dropout = 0.1, dff = 256) {
   const inp = tf.input({ shape: [null, inputDim] });
   let x = tf.layers.dense({ units: dModel }).apply(inp); // input projection
   x = new PositionalEncoding({ dModel }).apply(x);
@@ -122,13 +126,63 @@ class TransformerPricer extends OptionPricer {
     return result[ei][si];
   }
 
+  // Real attention: how strongly the encoder attends from the queried (K, T)
+  // node to every (strike, expiry) node on the grid. We run one forward pass
+  // with weight-capture enabled on each self-attention layer, average the
+  // softmax maps across layers (and heads, done in the layer), then return the
+  // query node's row reshaped to the NE x NS grid.
   attention(S, K, T) {
-    if (!this._trained) return null;
-    // Placeholder uniform attention, matching transformer.py.
-    const NE = this._expiries.length;
-    const NS = this._strikes.length;
-    const v = 1 / (NE * NS);
-    return zeros2d(NE, NS).map((row) => row.map(() => v));
+    if (!this._trained || !this._strikes || !this._expiries) return null;
+    const strikes = this._strikes;
+    const expiries = this._expiries;
+    const NE = expiries.length;
+    const NS = strikes.length;
+
+    // Nearest grid node to the query (K, T).
+    const nearest = (arr, target) => {
+      let idx = 0, best = Infinity;
+      for (let i = 0; i < arr.length; i++) {
+        const d = Math.abs(arr[i] - target);
+        if (d < best) { best = d; idx = i; }
+      }
+      return idx;
+    };
+    const si = nearest(strikes, K);
+    const ei = nearest(expiries.map(expiryT), T);
+    const queryIdx = ei * NS + si;
+
+    // Find the self-attention layers (works for both fresh and loaded models).
+    const attnLayers = this.model.layers.filter(
+      (l) => l instanceof MultiHeadSelfAttention || (l.getClassName && l.getClassName() === 'MultiHeadSelfAttention')
+    );
+    if (attnLayers.length === 0) {
+      const v = 1 / (NE * NS);
+      return zeros2d(NE, NS).map((row) => row.map(() => v));
+    }
+
+    attnLayers.forEach((l) => { l.collectAttention = true; });
+    try {
+      const rows = this._normalizeRows(this._buildGridFeatures(S, strikes, expiries));
+      tf.tidy(() => { this.model.predict(tf.tensor3d([rows])); }); // populates lastAttention
+
+      // Average the [S,S] maps across layers, then read the query row.
+      const row = tf.tidy(() => {
+        let acc = attnLayers[0].lastAttention.clone();
+        for (let i = 1; i < attnLayers.length; i++) acc = tf.add(acc, attnLayers[i].lastAttention);
+        const avg = tf.div(acc, attnLayers.length);   // [S,S]
+        return avg.slice([queryIdx, 0], [1, NE * NS]).reshape([NE * NS]).arraySync();
+      });
+
+      const out = zeros2d(NE, NS);
+      let kk = 0;
+      for (let i = 0; i < NE; i++) for (let j = 0; j < NS; j++) out[i][j] = row[kk++];
+      return out;
+    } finally {
+      attnLayers.forEach((l) => {
+        l.collectAttention = false;
+        if (l.lastAttention) { l.lastAttention.dispose(); l.lastAttention = null; }
+      });
+    }
   }
 
   setNormalization(scaler, targetScaler) {

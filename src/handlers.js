@@ -28,7 +28,7 @@ function train(payload = {}) {
   if (modelType === 'bs' || modelType === 'binomial') {
     return err(400, `'${modelType}' is a closed-form model, no training needed`);
   }
-  const jobId = worker.startTraining(modelType, { epochs, lr });
+  const jobId = worker.startTraining(modelType, { epochs, lr, multi: !!payload.multi });
   return { status: 202, body: { job_id: jobId, status: 'queued' } };
 }
 

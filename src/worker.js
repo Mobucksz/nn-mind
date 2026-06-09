@@ -7,8 +7,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { createPricer } = require('./models');
-const { trainModel } = require('./trainer');
-const { latestSession, loadSession } = require('./loader');
+const { trainModel, trainModelMulti } = require('./trainer');
+const { latestSession, loadSession, listSessions } = require('./loader');
 
 // In-memory job store and live model cache.
 const _jobs = {};
@@ -46,7 +46,7 @@ function _getOrCreateModel(modelType) {
 }
 
 // Start a training job. Returns a job id immediately; training runs async.
-function startTraining(modelType, { epochs = 50, lr = 0.001, sessionPath = null } = {}) {
+function startTraining(modelType, { epochs = 50, lr = 0.001, sessionPath = null, multi = false } = {}) {
   const jobId = crypto.randomUUID();
   const job = {
     id: jobId,
@@ -58,6 +58,8 @@ function startTraining(modelType, { epochs = 50, lr = 0.001, sessionPath = null 
     loss: null,
     val_loss: null,
     lr,
+    multi: !!multi,
+    nsessions: 1,
     history: [],
     error: null,
     created_at: nowIso(),
@@ -77,12 +79,22 @@ function startTraining(modelType, { epochs = 50, lr = 0.001, sessionPath = null 
   (async () => {
     try {
       job.status = 'loading_data';
-      const sd = sessionPath ? loadSession(sessionPath) : latestSession();
-      if (!sd) throw new Error('No session data available');
-
-      job.status = 'training';
       const pricer = _getOrCreateModel(modelType);
-      const history = await trainModel(pricer, sd, { epochs, lr, statusCallback: statusCb });
+      let history;
+
+      if (multi) {
+        // Train across every available recorded session (shape-grouped).
+        const sds = listSessions().map((s) => loadSession(s.path)).filter(Boolean);
+        if (!sds.length) throw new Error('No session data available');
+        job.nsessions = sds.length;
+        job.status = 'training';
+        history = await trainModelMulti(pricer, sds, { epochs, lr, statusCallback: statusCb });
+      } else {
+        const sd = sessionPath ? loadSession(sessionPath) : latestSession();
+        if (!sd) throw new Error('No session data available');
+        job.status = 'training';
+        history = await trainModel(pricer, sd, { epochs, lr, statusCallback: statusCb });
+      }
 
       // Save checkpoint, rotating any previous .latest into .v{N}.
       const base = path.join(MODEL_DIR, modelType);

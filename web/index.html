@@ -3,183 +3,197 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>nn-mind</title>
+<title>nn-mind - 3D</title>
 <style>
+  /* Theme aligned with OpVis (the sibling OptionScope 3D app): teal accent,
+     Inter, translucent blurred panels, hairline borders, readout labels. */
   :root {
     --bg: #07080c;
-    --panel: #0e1018;
-    --panel-2: #141826;
-    --line: #1e2433;
-    --text: #e6e9f2;
-    --muted: #8a93a8;
-    --accent: #5b8cff;
-    --accent-2: #36e2b4;
-    --warn: #ffb454;
-    --bad: #ff6b81;
-    --good: #36e2b4;
+    --bg-grad: radial-gradient(1400px 900px at 78% -25%, #11141d 0%, #07080c 55%);
+    --panel: rgba(14, 16, 22, 0.92);
+    --panel-solid: #0c0e14;
+    --panel-2: #14161f;
+    --hi: rgba(255, 255, 255, 0.045);
+    --line: rgba(255, 255, 255, 0.07);
+    --line-2: rgba(255, 255, 255, 0.13);
+    --shadow: 0 1px 0 var(--hi) inset, 0 14px 34px rgba(0, 0, 0, 0.5);
+    --text: #eef1f6;
+    --muted: #98a1b2;
+    --text-3: #59616f;
+    --accent: #4fe3c1;
+    --accent-ink: #04130f;
+    --accent-2: #6aa8ff;
+    --warn: #f5c451;
+    --bad: #ff7a90;
+    --good: #4fe3c1;
+    --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     --radius: 12px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body {
-    background:
-      radial-gradient(1100px 600px at 80% -10%, #11203f 0%, transparent 60%),
-      radial-gradient(900px 500px at -10% 10%, #122a26 0%, transparent 55%),
-      var(--bg);
+    background: var(--bg-grad), var(--bg);
     color: var(--text);
-    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
+    font: 14px/1.5 var(--font);
+    -webkit-font-smoothing: antialiased; overflow: hidden;
   }
-  a { color: var(--accent); }
-  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  /* Full-bleed stage: the 3D canvas fills the window; all chrome floats over it. */
+  #viewport { position: fixed; inset: 0; z-index: 0; }
+  #viewport canvas { display: block; }
 
-  /* Header */
+  /* Header - floating, transparent gradient, click-through so you can orbit
+     the canvas underneath it (interactive children re-enable pointer events). */
   header {
+    position: fixed; top: 0; left: 0; right: 0; height: 60px;
     display: flex; align-items: center; gap: 18px;
-    padding: 14px 22px; border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, rgba(20,24,38,.7), rgba(7,8,12,.4));
-    backdrop-filter: blur(6px);
+    padding: 0 22px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(8, 9, 13, 0.94) 0%, rgba(8, 9, 13, 0.55) 70%, rgba(8, 9, 13, 0) 100%);
+    pointer-events: none; z-index: 10;
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand .mark {
-    font-weight: 800; font-size: 20px; letter-spacing: .3px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .brand-mark {
+    color: var(--accent); font-size: 18px; line-height: 1;
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border: 1px solid var(--line-2); border-radius: 9px;
+    background: linear-gradient(180deg, rgba(79, 227, 193, 0.12), rgba(79, 227, 193, 0.03));
   }
-  .brand .tag { color: var(--muted); font-size: 12.5px; }
-  .session-badge {
-    margin-left: auto; display: flex; gap: 18px; align-items: center;
-    padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px;
-    background: var(--panel);
-  }
-  .session-badge .kv { display: flex; flex-direction: column; line-height: 1.15; }
-  .session-badge .kv b { font-size: 13px; }
-  .session-badge .kv span { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); }
+  .brand .brand-name { font-weight: 700; letter-spacing: 0.12em; font-size: 16px; }
+  .brand .brand-name b { color: var(--accent); font-weight: 700; }
+  .brand .brand-sub { color: var(--text-3); font-size: 10px; letter-spacing: 0.18em; border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; text-transform: uppercase; }
 
-  /* Layout */
-  main { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; overflow: hidden; }
-  .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding-right: 4px; }
-  .col.right { display: grid; grid-template-rows: auto auto; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .session-badge { margin-left: auto; display: flex; align-items: center; gap: 24px; }
+  .readout { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
+  .readout label { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+  .readout span { font-size: 15px; font-weight: 600; }
+  .readout span.accent { color: var(--accent); font-size: 18px; font-weight: 700; }
+  .source-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: #1a1405; background: var(--warn); border-radius: 6px; padding: 5px 10px; }
+
+  /* Floating left control rail */
+  .rail {
+    position: fixed; top: 72px; left: 16px; width: 320px; bottom: 16px;
+    display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding-right: 4px;
+    z-index: 10;
+  }
+  .rail::-webkit-scrollbar { width: 9px; }
+  .rail::-webkit-scrollbar-track { background: transparent; }
+  .rail::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; }
+  .rail::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: padding-box; }
 
   .card {
-    background: linear-gradient(180deg, var(--panel), rgba(14,16,24,.6));
-    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); backdrop-filter: blur(12px);
     padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 0;
   }
-  .card h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); font-weight: 600; }
-  .card .sub { font-size: 12px; color: var(--muted); margin-top: -6px; }
+  .card h2 {
+    margin: 0; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--muted); font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .card h2::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px -1px var(--accent); flex: none; }
+  .card .sub { font-size: 12px; color: var(--muted); margin-top: -4px; }
 
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
   .stat .v { font-size: 18px; font-weight: 700; }
-  .stat .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .stat .l { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; margin-top: 2px; }
 
-  /* Models list */
   .model { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
   .model .top { display: flex; align-items: center; gap: 8px; }
-  .model .name { font-weight: 700; }
+  .model .name { font-weight: 700; letter-spacing: 0.02em; }
   .model .desc { font-size: 11.5px; color: var(--muted); }
-  .badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .5px; }
-  .badge.trained { color: var(--good); border-color: rgba(54,226,180,.4); background: rgba(54,226,180,.08); }
-  .badge.untrained { color: var(--warn); border-color: rgba(255,180,84,.35); background: rgba(255,180,84,.07); }
-  .badge.cf { color: var(--accent); border-color: rgba(91,140,255,.4); background: rgba(91,140,255,.08); }
-  .badge.attn { color: #c08bff; border-color: rgba(192,139,255,.4); background: rgba(192,139,255,.08); }
+  .badge { font-size: 9px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+  .badge.trained { color: var(--accent); border-color: rgba(79, 227, 193, 0.4); background: rgba(79, 227, 193, 0.08); }
+  .badge.untrained { color: var(--warn); border-color: rgba(245, 196, 81, 0.35); background: rgba(245, 196, 81, 0.07); }
+  .badge.cf { color: var(--accent-2); border-color: rgba(106, 168, 255, 0.4); background: rgba(106, 168, 255, 0.08); }
+  .badge.attn { color: #c08bff; border-color: rgba(192, 139, 255, 0.4); background: rgba(192, 139, 255, 0.08); }
   .model .row { display: flex; gap: 8px; align-items: center; }
   .model .row input { width: 64px; }
 
   input, select, button {
     font: inherit; color: var(--text);
-    background: #0b0d15; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+    background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 8px; padding: 7px 10px;
   }
-  input:focus, select:focus { outline: none; border-color: var(--accent); }
-  label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: block; margin-bottom: 4px; }
-  button {
-    cursor: pointer; background: linear-gradient(180deg, #1b2236, #141a2b);
-    border-color: #2a3450; transition: .15s; font-weight: 600;
-  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79, 227, 193, 0.12); }
+  label { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; display: block; margin-bottom: 4px; font-weight: 600; }
+  button { cursor: pointer; transition: 0.15s; font-weight: 600; }
   button:hover { border-color: var(--accent); }
-  button.primary { background: linear-gradient(180deg, var(--accent), #3f6fe0); border-color: transparent; color: white; }
-  button.primary:hover { filter: brightness(1.08); }
+  button.primary {
+    background: linear-gradient(180deg, #5cefcc, #3ccfae); border: none;
+    color: var(--accent-ink); font-weight: 700; letter-spacing: 0.02em;
+  }
+  button.primary:hover { filter: brightness(1.06); }
   button:disabled { opacity: .5; cursor: default; }
 
-  .progress { height: 6px; background: #0b0d15; border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
-  .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .25s; }
+  .progress { height: 6px; background: var(--panel-solid); border-radius: 999px; overflow: hidden; border: 1px solid var(--line); }
+  .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .25s; }
   .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .hint { font-size: 11.5px; color: var(--muted); }
+  .err { color: var(--bad); font-size: 12px; min-height: 14px; }
+  .muted { color: var(--muted); }
+  .switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .switch input { width: auto; accent-color: var(--accent); }
 
   /* Pricer */
   .price-out { display: flex; align-items: baseline; gap: 10px; }
-  .price-out .big { font-size: 34px; font-weight: 800; }
-  .price-out .cur { color: var(--muted); }
+  .price-out .big { font-size: 34px; font-weight: 800; color: var(--accent); }
+  .price-out .cur { color: var(--text-3); }
   .greeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .greek { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; }
-  .greek .gl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .greek .gl { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; }
   .greek .gv { font-size: 16px; font-weight: 700; margin-top: 2px; }
-
   .field-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 
-  /* Canvas / heatmap */
-  .canvas-wrap { position: relative; flex: 1; min-height: 220px; display: flex; gap: 10px; }
-  canvas { background: #0a0c13; border: 1px solid var(--line); border-radius: 8px; width: 100%; height: 100%; }
-  .colorbar { width: 14px; border-radius: 6px; border: 1px solid var(--line); }
-  .cb-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
-  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .toolbar .spacer { flex: 1; }
-  .muted { color: var(--muted); }
-  .err { color: var(--bad); font-size: 12px; }
-  .hint { font-size: 11.5px; color: var(--muted); }
+  /* Floating top toolbar - sits to the right of the rail, below the header. */
+  .stage-top { position: fixed; top: 72px; left: 352px; right: 16px; z-index: 10; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+  .stage-top > * { pointer-events: auto; }
+  .glass { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; backdrop-filter: blur(12px); box-shadow: var(--shadow); }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button { border: none; border-radius: 0; padding: 6px 10px; background: transparent; }
-  .seg button.active { background: var(--accent); color: white; }
+  .seg button { border: none; border-radius: 0; padding: 7px 12px; background: transparent; font-size: 12.5px; font-weight: 600; }
+  .seg button.active { background: var(--accent); color: var(--accent-ink); }
+  .ctl-group { display: flex; align-items: center; gap: 8px; }
+  .ctl-group select { padding: 6px 8px; }
+  .ctl-group .vs { color: var(--text-3); font-size: 12px; }
+  .spacer { flex: 1; }
+  .icon-btn { padding: 7px 11px; font-size: 12.5px; }
+  .slider { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .slider input { width: 90px; accent-color: var(--accent); }
+
+  .stage-title { position: fixed; left: 352px; bottom: 16px; z-index: 10; font-size: 12.5px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; backdrop-filter: blur(12px); }
+
+  .legend { position: fixed; right: 16px; bottom: 16px; z-index: 10; display: flex; align-items: stretch; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(12px); }
+  .legend .lab { font-size: 9px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.14em; align-self: center; max-width: 90px; }
+  .legend canvas { width: 12px; height: 86px; border-radius: 4px; border: 1px solid var(--line); }
+  .legend .ticks { display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+  #hoverTip { position: fixed; display: none; z-index: 40; pointer-events: none; background: rgba(8, 9, 13, 0.94); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 9px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; box-shadow: var(--shadow); }
+  #hoverTip b { color: var(--accent); }
+  #hoverTip span { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; }
+
+  .hint-controls { position: fixed; right: 16px; top: 120px; z-index: 9; font-size: 10.5px; color: var(--text-3); text-align: right; line-height: 1.6; opacity: .8; letter-spacing: 0.04em; pointer-events: none; }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
+<div id="viewport"></div>
+
+<header>
     <div class="brand">
-      <span class="mark">nn-mind</span>
-      <span class="tag">neural-network options pricer &amp; surface lab</span>
+      <span class="brand-mark">&#9709;</span>
+      <span class="brand-name">nn<b>-mind</b></span>
+      <span class="brand-sub">3D</span>
     </div>
-    <div class="session-badge" id="sessionBadge">
-      <span class="dot"></span>
-      <div class="kv"><b id="sbSymbol">—</b><span>symbol</span></div>
-      <div class="kv"><b id="sbDate">—</b><span>session</span></div>
-      <div class="kv"><b id="sbSpot">—</b><span>spot</span></div>
+    <div class="session-badge">
+      <div class="readout"><label>Symbol</label><span id="sbSymbol">-</span></div>
+      <div class="readout"><label>Session</label><span id="sbDate">-</span></div>
+      <div class="readout"><label>Spot</label><span id="sbSpot" class="accent">-</span></div>
+      <span class="source-badge">REC</span>
     </div>
   </header>
 
-  <main>
-    <!-- LEFT -->
-    <div class="col">
+  <!-- Floating control rail -->
+  <div class="rail">
       <div class="card">
         <h2>Recorded session</h2>
-        <div class="sub" id="sessionSub">loading…</div>
+        <div class="sub" id="sessionSub">loading...</div>
         <div class="grid2" id="sessionStats"></div>
-      </div>
-
-      <div class="card">
-        <h2>Models</h2>
-        <div class="sub">Closed-form are always ready. Neural nets train on the recorded surface.</div>
-        <div id="modelList" style="display:flex;flex-direction:column;gap:10px"></div>
-      </div>
-    </div>
-
-    <!-- RIGHT -->
-    <div class="col right">
-      <div class="card" style="grid-column: 1 / 3;">
-        <div class="toolbar">
-          <h2 style="margin:0">Price surface</h2>
-          <span class="spacer"></span>
-          <label style="margin:0">model</label>
-          <select id="surfaceModel"></select>
-          <button id="surfaceRefresh">Render</button>
-        </div>
-        <div class="sub" id="surfaceSub">Call price across strike × expiry.</div>
-        <div class="canvas-wrap">
-          <canvas id="surfaceCanvas"></canvas>
-          <div class="cb-wrap"><span id="cbMax">–</span><div class="colorbar" id="colorbar"></div><span id="cbMin">–</span></div>
-        </div>
-        <div class="err" id="surfaceErr"></div>
       </div>
 
       <div class="card">
@@ -191,299 +205,66 @@
           <div><label>Model</label><select id="inModel"></select></div>
         </div>
         <button class="primary" id="priceBtn">Price option</button>
-        <div class="price-out"><span class="big mono" id="priceVal">—</span><span class="cur">USD</span><span class="muted mono" id="priceModel"></span></div>
+        <div class="price-out"><span class="big mono" id="priceVal">-</span><span class="cur">USD</span><span class="muted mono" id="priceModel"></span></div>
         <div class="greeks">
-          <div class="greek"><div class="gl">Δ delta</div><div class="gv mono" id="gDelta">—</div></div>
-          <div class="greek"><div class="gl">Γ gamma</div><div class="gv mono" id="gGamma">—</div></div>
-          <div class="greek"><div class="gl">ν vega</div><div class="gv mono" id="gVega">—</div></div>
-          <div class="greek"><div class="gl">Θ theta</div><div class="gv mono" id="gTheta">—</div></div>
+          <div class="greek"><div class="gl">delta</div><div class="gv mono" id="gDelta">-</div></div>
+          <div class="greek"><div class="gl">gamma</div><div class="gv mono" id="gGamma">-</div></div>
+          <div class="greek"><div class="gl">vega</div><div class="gv mono" id="gVega">-</div></div>
+          <div class="greek"><div class="gl">theta</div><div class="gv mono" id="gTheta">-</div></div>
         </div>
         <div class="err" id="priceErr"></div>
+        <div class="hint">The priced point is dropped as a marker on the price surface.</div>
       </div>
 
       <div class="card">
-        <div class="toolbar">
-          <h2 style="margin:0">Model comparison</h2>
-          <span class="spacer"></span>
-          <select id="cmpA"></select>
-          <span class="muted">vs</span>
-          <select id="cmpB"></select>
-          <button id="cmpBtn">Diff</button>
-        </div>
-        <div class="sub" id="cmpSub">Per-node price difference (A − B). Red = A richer, blue = B richer.</div>
-        <div class="canvas-wrap">
-          <canvas id="cmpCanvas"></canvas>
-          <div class="cb-wrap"><span id="cmpMax">–</span><div class="colorbar" id="cmpColorbar"></div><span id="cmpMin">–</span></div>
-        </div>
-        <div class="err" id="cmpErr"></div>
+        <h2>Models</h2>
+        <div class="sub">Closed-form are always ready. Neural nets train on the recorded ladder.</div>
+        <label class="switch" style="margin:2px 0"><input id="multiTrain" type="checkbox"> train on all sessions <span id="multiCount" class="hint"></span></label>
+        <div id="modelList" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
-    </div>
-  </main>
-</div>
+  </div>
 
-<script>
-const $ = s => document.querySelector(s);
-// IPC bridge to the Electron main process (see electron/preload.cjs).
-// Resolves with the response body, or throws Error(message) on failure -
-// same contract the old fetch()-based helper had.
-const api = (action, payload) => window.nn.invoke(action, payload);
-const fmt = (x, d = 4) => (x === null || x === undefined || Number.isNaN(x)) ? '—' : Number(x).toFixed(d);
-
-// ---- colormaps -------------------------------------------------
-// Viridis-ish ramp for sequential (surface), no external deps.
-function viridis(t) {
-  t = Math.max(0, Math.min(1, t));
-  const stops = [
-    [68,1,84],[59,82,139],[33,144,140],[93,201,99],[253,231,37]
-  ];
-  const f = t * (stops.length - 1), i = Math.floor(f), r = f - i;
-  const a = stops[i], b = stops[Math.min(i + 1, stops.length - 1)];
-  return [Math.round(a[0]+(b[0]-a[0])*r), Math.round(a[1]+(b[1]-a[1])*r), Math.round(a[2]+(b[2]-a[2])*r)];
-}
-// Diverging blue-white-red for comparison.
-function diverging(t) {
-  t = Math.max(-1, Math.min(1, t));
-  if (t < 0) { const u = 1 + t; return [Math.round(54+201*u), Math.round(120+135*u), Math.round(255)]; }
-  const u = 1 - t; return [255, Math.round(107+148*u), Math.round(129+126*u)];
-}
-
-function paintColorbar(el, fn) {
-  const h = 120, c = document.createElement('canvas'); c.width = 14; c.height = h;
-  const ctx = c.getContext('2d');
-  for (let y = 0; y < h; y++) {
-    const [r,g,b] = fn(1 - y / (h - 1));
-    ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, y, 14, 1);
-  }
-  el.style.background = `url(${c.toDataURL()})`; el.style.backgroundSize = 'cover';
-  el.style.height = h + 'px';
-}
-
-// ---- heatmap renderer ------------------------------------------
-function drawHeatmap(canvas, matrix, strikes, expiries, opts = {}) {
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.clientWidth, H = canvas.clientHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
-  const padL = 54, padB = 30, padT = 8, padR = 8;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const NE = matrix.length, NS = matrix[0].length;
-
-  let lo = Infinity, hi = -Infinity;
-  for (const row of matrix) for (const v of row) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const diverge = opts.diverge;
-  if (diverge) { const m = Math.max(Math.abs(lo), Math.abs(hi)) || 1; lo = -m; hi = m; }
-  const span = (hi - lo) || 1;
-
-  const cw = plotW / NS, ch = plotH / NE;
-  for (let i = 0; i < NE; i++) {
-    for (let j = 0; j < NS; j++) {
-      const v = matrix[i][j];
-      const t = diverge ? v / Math.max(Math.abs(lo), Math.abs(hi)) : (v - lo) / span;
-      const [r,g,b] = (diverge ? diverging(t) : viridis(t));
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(padL + j * cw, padT + i * ch, cw + 0.6, ch + 0.6);
-    }
-  }
-  // axes labels
-  ctx.fillStyle = '#8a93a8'; ctx.font = '10px ui-monospace, monospace';
-  ctx.textAlign = 'center';
-  const xstep = Math.ceil(NS / 7);
-  for (let j = 0; j < NS; j += xstep) {
-    ctx.fillText(Math.round(strikes[j]), padL + (j + .5) * cw, H - padB + 14);
-  }
-  ctx.fillText('strike', padL + plotW / 2, H - 4);
-  ctx.textAlign = 'right';
-  const ystep = Math.ceil(NE / 6) || 1;
-  for (let i = 0; i < NE; i += ystep) {
-    const e = expiries[i];
-    const lbl = (e && e.days != null) ? (e.days + 'd') : (e && e.date ? String(e.date).slice(5) : i);
-    ctx.fillText(lbl, padL - 8, padT + (i + .5) * ch + 3);
-  }
-  ctx.save(); ctx.translate(12, padT + plotH / 2); ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center'; ctx.fillText('expiry', 0, 0); ctx.restore();
-  return { lo, hi };
-}
-
-// ---- state -----------------------------------------------------
-let MODELS = [];
-let SESSION = null;
-
-function modelBadge(m) {
-  if (m.type === 'bs' || m.type === 'binomial') return '<span class="badge cf">closed-form</span>';
-  return m.trained ? '<span class="badge trained">trained</span>' : '<span class="badge untrained">untrained</span>';
-}
-
-function fillModelSelects() {
-  const opts = MODELS.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-  for (const id of ['#surfaceModel', '#inModel', '#cmpA', '#cmpB']) $(id).innerHTML = opts;
-  $('#surfaceModel').value = 'bs';
-  $('#inModel').value = 'bs';
-  $('#cmpA').value = 'binomial'; $('#cmpB').value = 'bs';
-}
-
-function renderModelList() {
-  const host = $('#modelList'); host.innerHTML = '';
-  for (const m of MODELS) {
-    const isNN = !(m.type === 'bs' || m.type === 'binomial');
-    const el = document.createElement('div'); el.className = 'model';
-    el.innerHTML = `
-      <div class="top">
-        <span class="name">${m.name}</span>
-        ${modelBadge(m)}
-        ${m.has_attention ? '<span class="badge attn">attention</span>' : ''}
-      </div>
-      <div class="desc">${m.description || ''}</div>
-      ${isNN ? `
-        <div class="row">
-          <input class="mono" type="number" value="60" min="1" max="500" id="ep-${m.name}">
-          <span class="hint">epochs</span>
-          <span style="flex:1"></span>
-          <button data-train="${m.name}">${m.trained ? 'Retrain' : 'Train'}</button>
+  <div class="stage-top">
+        <div class="seg glass" id="modeSeg">
+          <button data-mode="price" class="active">Price surface</button>
+          <button data-mode="diff">Comparison</button>
+          <button data-mode="attention">Attention</button>
         </div>
-        <div class="progress" style="display:none"><i></i></div>
-        <div class="hint mono" data-log="${m.name}"></div>
-      ` : ''}
-    `;
-    host.appendChild(el);
-  }
-  host.querySelectorAll('[data-train]').forEach(b =>
-    b.addEventListener('click', () => trainModel(b.dataset.train)));
-}
 
-async function trainModel(name) {
-  const card = $(`[data-train="${name}"]`).closest('.model');
-  const bar = card.querySelector('.progress'); const fill = bar.querySelector('i');
-  const log = card.querySelector('[data-log]'); const btn = card.querySelector('[data-train]');
-  const epochs = parseInt($(`#ep-${name}`).value) || 60;
-  btn.disabled = true; bar.style.display = 'block'; log.textContent = 'queued…';
-  try {
-    const { job_id } = await api('train', { model_type: name, epochs });
-    await new Promise((resolve, reject) => {
-      const tick = async () => {
-        try {
-          const j = await api('train-status', { job_id });
-          fill.style.width = (j.progress || 0) + '%';
-          log.textContent = `${j.status} · epoch ${j.current_epoch}/${j.epochs}` +
-            (j.loss != null ? ` · loss ${fmt(j.loss, 4)} · val ${fmt(j.val_loss, 4)}` : '');
-          if (j.status === 'completed') return resolve();
-          if (j.status === 'failed') return reject(new Error(j.error || 'training failed'));
-          setTimeout(tick, 400);
-        } catch (e) { reject(e); }
-      };
-      tick();
-    });
-    log.textContent = 'done ✓ ' + log.textContent;
-    await loadModels();
-    if ($('#surfaceModel').value === name) renderSurface();
-  } catch (e) {
-    log.innerHTML = `<span class="err">${e.message}</span>`;
-  } finally {
-    btn.disabled = false;
-  }
-}
+        <div class="ctl-group glass" id="priceCtl">
+          <label style="margin:0">model</label>
+          <select id="vModel"></select>
+        </div>
+        <div class="ctl-group glass" id="diffCtl" style="display:none">
+          <select id="cmpA"></select><span class="vs">vs</span><select id="cmpB"></select>
+        </div>
+        <div class="ctl-group glass" id="attnCtl" style="display:none">
+          <span class="hint">transformer attention</span>
+          <button id="attnRefresh" class="icon-btn">Refresh</button>
+        </div>
 
-async function loadSession() {
-  try {
-    SESSION = await api('latest-session');
-    $('#sbSymbol').textContent = SESSION.meta.symbol || '—';
-    $('#sbDate').textContent = SESSION.meta.sessionDate || '—';
-    $('#sbSpot').textContent = fmt(SESSION.spot_avg, 2);
-    $('#sessionSub').textContent =
-      `${SESSION.meta.source || 'recording'} · ${SESSION.nframes} frames`;
-    const e = SESSION.expiries;
-    $('#sessionStats').innerHTML = `
-      <div class="stat"><div class="v">${SESSION.strikes.length}</div><div class="l">strikes</div></div>
-      <div class="stat"><div class="v">${e.length}</div><div class="l">expiries</div></div>
-      <div class="stat"><div class="v mono">${fmt(SESSION.spot_min,1)}–${fmt(SESSION.spot_max,1)}</div><div class="l">spot range</div></div>
-      <div class="stat"><div class="v mono">${e.length?e[0].days+'–'+e[e.length-1].days+'d':'—'}</div><div class="l">expiry span</div></div>
-    `;
-  } catch (e) {
-    $('#sessionSub').innerHTML = `<span class="err">${e.message}</span>`;
-  }
-}
+        <span class="spacer"></span>
 
-async function loadModels() {
-  MODELS = await api('models');
-  renderModelList();
-  const prevSurf = $('#surfaceModel').value, prevA = $('#cmpA').value, prevB = $('#cmpB').value;
-  fillModelSelects();
-  if (prevSurf) $('#surfaceModel').value = prevSurf;
-  if (prevA) $('#cmpA').value = prevA;
-  if (prevB) $('#cmpB').value = prevB;
-}
+        <div class="glass slider"><span>height</span><input id="heightSlider" type="range" min="0.2" max="2.5" step="0.1" value="1"></div>
+        <label class="glass switch"><input id="wireToggle" type="checkbox">wireframe</label>
+        <button id="resetView" class="glass icon-btn">Reset view</button>
+      </div>
 
-async function renderSurface() {
-  const model = $('#surfaceModel').value;
-  $('#surfaceErr').textContent = ''; $('#surfaceSub').textContent = `Rendering ${model}…`;
-  try {
-    const s = await api('surface', { model });
-    const { lo, hi } = drawHeatmap($('#surfaceCanvas'), s.prices, s.strikes, s.expiries);
-    paintColorbar($('#colorbar'), viridis);
-    $('#cbMin').textContent = fmt(lo, 1); $('#cbMax').textContent = fmt(hi, 1);
-    $('#surfaceSub').textContent = `${model} · call price · S=${fmt(s.S,2)}`;
-  } catch (e) {
-    $('#surfaceErr').textContent = e.message;
-    $('#surfaceSub').textContent = 'Call price across strike × expiry.';
-  }
-}
+      <div class="hint-controls">drag to orbit - scroll to zoom - right-drag to pan</div>
 
-async function priceOption() {
-  $('#priceErr').textContent = '';
-  const body = { S: +$('#inS').value, K: +$('#inK').value, T: +$('#inT').value, model_type: $('#inModel').value };
-  try {
-    const r = await api('infer', body);
-    $('#priceVal').textContent = fmt(r.price, 3);
-    $('#priceModel').textContent = '· ' + r.model;
-    $('#gDelta').textContent = fmt(r.delta, 4);
-    $('#gGamma').textContent = fmt(r.gamma, 5);
-    $('#gVega').textContent = fmt(r.vega, 4);
-    $('#gTheta').textContent = fmt(r.theta, 4);
-  } catch (e) {
-    $('#priceErr').textContent = e.message;
-    $('#priceVal').textContent = '—';
-  }
-}
+      <div class="stage-title"><span id="viewTitle">call-price surface</span> <span class="err" id="viewErr"></span></div>
 
-async function compare() {
-  const a = $('#cmpA').value, b = $('#cmpB').value;
-  $('#cmpErr').textContent = '';
-  if (a === b) { $('#cmpErr').textContent = 'Pick two different models.'; return; }
-  try {
-    const r = await api('compare', { models: `${a},${b}` });
-    const key = `${a}-${b}`, alt = `${b}-${a}`;
-    let diff = r.differences[key];
-    if (!diff && r.differences[alt]) diff = r.differences[alt].map(row => row.map(v => -v));
-    if (!diff) throw new Error('no difference available for this pair');
-    const exp = SESSION ? SESSION.expiries : r.expiries.map(d => ({ date: d }));
-    const { lo, hi } = drawHeatmap($('#cmpCanvas'), diff, r.strikes, exp, { diverge: true });
-    paintColorbar($('#cmpColorbar'), t => diverging(t * 2 - 1));
-    $('#cmpMin').textContent = fmt(lo, 1); $('#cmpMax').textContent = fmt(hi, 1);
-    $('#cmpSub').textContent = `${a} − ${b} · max |Δ| ${fmt(Math.max(Math.abs(lo),Math.abs(hi)),2)}`;
-  } catch (e) {
-    $('#cmpErr').textContent = e.message;
-  }
-}
+  <div class="legend">
+    <div class="lab" id="legendLabel">call price ($)</div>
+    <canvas id="legendBar" width="12" height="86"></canvas>
+    <div class="ticks"><span id="legHi">-</span><span id="legMid">-</span><span id="legLo">-</span></div>
+  </div>
 
-// wire up
-$('#surfaceRefresh').addEventListener('click', renderSurface);
-$('#surfaceModel').addEventListener('change', renderSurface);
-$('#priceBtn').addEventListener('click', priceOption);
-$('#cmpBtn').addEventListener('click', compare);
+<div id="hoverTip"></div>
 
-(async function init() {
-  if (!window.nn) { console.error('init: window.nn bridge missing'); return; }
-  try {
-    await Promise.all([loadSession(), loadModels()]);
-    await renderSurface();
-    await priceOption();
-    await compare();
-    console.log('init: dashboard ready');
-  } catch (e) {
-    console.error('init failed:', e.message);
-  }
-})();
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
 </script>
+<script type="module" src="./app.js"></script>
 </body>
 </html>

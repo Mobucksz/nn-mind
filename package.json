@@ -8,6 +8,7 @@
     "electron": "^42.3.3"
   },
   "dependencies": {
-    "@tensorflow/tfjs": "^4.22.0"
+    "@tensorflow/tfjs": "^4.22.0",
+    "three": "^0.160.0"
   }
 }

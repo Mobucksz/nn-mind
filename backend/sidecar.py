@@ -250,6 +250,14 @@ HANDLERS = {
     "ibkr.stream.stop": h_ibkr_stream_stop,
 }
 
+# 3D pattern-lab channels (backend/analysis.py)
+from backend.analysis import h_surface3d, h_pca, h_correlation  # noqa: E402
+HANDLERS.update({
+    "surface3d": h_surface3d,
+    "analysis.pca": h_pca,
+    "analysis.correlation": h_correlation,
+})
+
 
 def _dispatch(msg):
     rid = msg.get("id")

@@ -55,7 +55,11 @@
 
   main { display: grid; grid-template-columns: 330px 1fr; gap: 16px; padding: 16px; overflow: hidden; }
   .col { display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: auto; padding-right: 4px; }
-  .col.right { display: grid; grid-template-rows: auto auto; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .col.right {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: minmax(380px, 1.4fr) minmax(240px, 1fr);
+  }
 
   .card {
     background: linear-gradient(180deg, var(--panel), rgba(14,16,24,.6));
@@ -99,25 +103,24 @@
   .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
   .price-out { display: flex; align-items: baseline; gap: 10px; }
-  .price-out .big { font-size: 34px; font-weight: 800; }
+  .price-out .big { font-size: 30px; font-weight: 800; }
   .price-out .cur { color: var(--muted); }
   .greeks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .greek { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; text-align: center; }
   .greek .gl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-  .greek .gv { font-size: 16px; font-weight: 700; margin-top: 2px; }
-  .field-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .greek .gv { font-size: 15px; font-weight: 700; margin-top: 2px; }
+  .field-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 
-  .canvas-wrap { position: relative; flex: 1; min-height: 210px; display: flex; gap: 10px; }
-  canvas { background: #0a0c13; border: 1px solid var(--line); border-radius: 8px; width: 100%; height: 100%; }
-  .colorbar { width: 14px; border-radius: 6px; border: 1px solid var(--line); }
-  .cb-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+  canvas.surf { background: #0a0c13; border: 1px solid var(--line); border-radius: 8px; width: 100%; height: 100%; cursor: grab; }
+  canvas.surf:active { cursor: grabbing; }
+  .canvas-fill { position: relative; flex: 1; min-height: 160px; }
+  .canvas-fill canvas { position: absolute; inset: 0; }
   .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .toolbar .spacer { flex: 1; }
   .muted { color: var(--muted); }
   .err { color: var(--bad); font-size: 12px; }
   .hint { font-size: 11.5px; color: var(--muted); }
 
-  /* IBKR panel */
   .ib-status { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .ib-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
   .ib-live { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
@@ -125,6 +128,15 @@
   .banner { padding: 8px 12px; border-radius: 8px; font-size: 12px; border: 1px solid; display: none; }
   .banner.show { display: block; }
   .banner.error { color: var(--bad); border-color: rgba(255,107,129,.4); background: rgba(255,107,129,.08); }
+
+  .pca-modes { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+  .pca-mode { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; flex: 1; min-height: 0; }
+  .pca-mode .canvas-fill { min-height: 64px; height: 100%; }
+  .pca-cap { font-size: 11.5px; line-height: 1.45; }
+  .pca-cap b { font-size: 12.5px; }
+  .corr-spot { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 10.5px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); }
+  .chip b.pos { color: var(--accent-2); } .chip b.neg { color: var(--bad); }
 </style>
 </head>
 <body>
@@ -132,7 +144,7 @@
   <header>
     <div class="brand">
       <span class="mark">nn-mind</span>
-      <span class="tag">neural-network options pricer &amp; surface lab</span>
+      <span class="tag">neural-network options lab · 3D pattern &amp; correlation engine</span>
     </div>
     <div class="session-badge" id="sessionBadge">
       <span class="dot" id="badgeDot"></span>
@@ -164,7 +176,7 @@
           <button class="ghost" id="ibTest" title="Synthetic drifting feed — no broker needed. Clearly labelled, never real IBKR.">Test feed</button>
         </div>
         <div class="hint">Ports: 7497 paper TWS · 7496 live TWS · 4001/4002 IB Gateway.</div>
-        <div id="ibStreamRow" style="display:none; border-top:1px solid var(--line); padding-top:12px; display:none; flex-direction:column; gap:10px;">
+        <div id="ibStreamRow" style="display:none; border-top:1px solid var(--line); padding-top:12px; flex-direction:column; gap:10px;">
           <div class="toolbar">
             <label style="margin:0">symbol</label><input id="ibSymbol" class="mono" value="SPY" style="width:80px">
             <label style="margin:0">every</label><input id="ibInterval" class="mono" value="5" style="width:54px"><span class="muted">s</span>
@@ -188,27 +200,30 @@
 
       <div class="card">
         <h2>Models</h2>
-        <div class="sub">Closed-form are always ready. Neural nets train on the live/recorded surface.</div>
+        <div class="sub">Closed-form are always ready. Neural nets learn the live/recorded surface.</div>
         <div id="modelList" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
     </div>
 
-    <!-- RIGHT -->
+    <!-- RIGHT: the 3D pattern lab -->
     <div class="col right">
-      <div class="card" style="grid-column: 1 / 3;">
+      <div class="card" style="grid-column: 1 / 4;">
         <div class="toolbar">
-          <h2 style="margin:0">Price surface</h2>
+          <h2 style="margin:0">3D surface lab</h2>
           <span class="spacer"></span>
+          <label style="margin:0">view</label>
+          <select id="s3kind">
+            <option value="market">Market IV</option>
+            <option value="model">Model surface</option>
+            <option value="residual">Residual (model − market)</option>
+          </select>
           <label style="margin:0">model</label>
-          <select id="surfaceModel"></select>
-          <button id="surfaceRefresh">Render</button>
+          <select id="s3model"></select>
+          <button id="s3render">Render</button>
         </div>
-        <div class="sub" id="surfaceSub">Call price across strike × expiry.</div>
-        <div class="canvas-wrap">
-          <canvas id="surfaceCanvas"></canvas>
-          <div class="cb-wrap"><span id="cbMax">–</span><div class="colorbar" id="colorbar"></div><span id="cbMin">–</span></div>
-        </div>
-        <div class="err" id="surfaceErr"></div>
+        <div class="sub" id="s3sub">Drag to rotate. Strike → width, expiry → depth, value → height.</div>
+        <div class="canvas-fill"><canvas class="surf" id="s3canvas"></canvas></div>
+        <div class="err" id="s3err"></div>
       </div>
 
       <div class="card">
@@ -222,27 +237,27 @@
         <button class="primary" id="priceBtn">Price option</button>
         <div class="price-out"><span class="big mono" id="priceVal">—</span><span class="cur">USD</span><span class="muted mono" id="priceModel"></span></div>
         <div class="greeks">
-          <div class="greek"><div class="gl">Δ delta</div><div class="gv mono" id="gDelta">—</div></div>
-          <div class="greek"><div class="gl">Γ gamma</div><div class="gv mono" id="gGamma">—</div></div>
-          <div class="greek"><div class="gl">ν vega</div><div class="gv mono" id="gVega">—</div></div>
-          <div class="greek"><div class="gl">Θ theta</div><div class="gv mono" id="gTheta">—</div></div>
+          <div class="greek"><div class="gl">Δ</div><div class="gv mono" id="gDelta">—</div></div>
+          <div class="greek"><div class="gl">Γ</div><div class="gv mono" id="gGamma">—</div></div>
+          <div class="greek"><div class="gl">ν</div><div class="gv mono" id="gVega">—</div></div>
+          <div class="greek"><div class="gl">Θ</div><div class="gv mono" id="gTheta">—</div></div>
         </div>
         <div class="err" id="priceErr"></div>
       </div>
 
       <div class="card">
-        <div class="toolbar">
-          <h2 style="margin:0">Model comparison</h2>
-          <span class="spacer"></span>
-          <select id="cmpA"></select><span class="muted">vs</span><select id="cmpB"></select>
-          <button id="cmpBtn">Diff</button>
-        </div>
-        <div class="sub" id="cmpSub">Per-node price difference (A − B). Red = A richer, blue = B richer.</div>
-        <div class="canvas-wrap">
-          <canvas id="cmpCanvas"></canvas>
-          <div class="cb-wrap"><span id="cmpMax">–</span><div class="colorbar" id="cmpColorbar"></div><span id="cmpMin">–</span></div>
-        </div>
-        <div class="err" id="cmpErr"></div>
+        <h2>Surface dynamics · PCA modes</h2>
+        <div class="sub" id="pcaSub">How the surface deforms frame-to-frame, decomposed into its dominant patterns.</div>
+        <div class="pca-modes" id="pcaModes"></div>
+        <div class="err" id="pcaErr"></div>
+      </div>
+
+      <div class="card">
+        <h2>Feature correlations</h2>
+        <div class="sub">Across every (frame × expiry × strike) node of the session.</div>
+        <div class="canvas-fill" style="min-height:140px"><canvas id="corrCanvas" style="position:absolute;inset:0;width:100%;height:100%;background:#0a0c13;border:1px solid var(--line);border-radius:8px;"></canvas></div>
+        <div class="corr-spot" id="corrSpot"></div>
+        <div class="err" id="corrErr"></div>
       </div>
     </div>
   </main>
@@ -252,7 +267,7 @@
 const $ = s => document.querySelector(s);
 const fmt = (x, d = 4) => (x === null || x === undefined || Number.isNaN(x)) ? '—' : Number(x).toFixed(d);
 
-// ---- IPC bridge (replaces fetch). window.api is injected by preload.cjs. ----
+// ---- IPC bridge (window.api injected by electron/preload.cjs) --------------
 const invoke = (channel, payload) => {
   if (!window.api || !window.api.invoke) {
     return Promise.reject(new Error('Backend bridge unavailable (run inside the nn-mind app, not a browser).'));
@@ -260,7 +275,7 @@ const invoke = (channel, payload) => {
   return window.api.invoke(channel, payload);
 };
 
-// ---- colormaps -------------------------------------------------
+// ---- colormaps -------------------------------------------------------------
 function viridis(t) {
   t = Math.max(0, Math.min(1, t));
   const stops = [[68,1,84],[59,82,139],[33,144,140],[93,201,99],[253,231,37]];
@@ -273,50 +288,146 @@ function diverging(t) {
   if (t < 0) { const u = 1 + t; return [Math.round(54+201*u), Math.round(120+135*u), 255]; }
   const u = 1 - t; return [255, Math.round(107+148*u), Math.round(129+126*u)];
 }
-function paintColorbar(el, fn) {
-  const h = 120, c = document.createElement('canvas'); c.width = 14; c.height = h;
-  const ctx = c.getContext('2d');
-  for (let y = 0; y < h; y++) { const [r,g,b] = fn(1 - y / (h - 1)); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, y, 14, 1); }
-  el.style.background = `url(${c.toDataURL()})`; el.style.backgroundSize = 'cover'; el.style.height = h + 'px';
-}
-function drawHeatmap(canvas, matrix, strikes, expiries, opts = {}) {
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.clientWidth, H = canvas.clientHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr; ctx.scale(dpr, dpr); ctx.clearRect(0, 0, W, H);
-  const padL = 54, padB = 30, padT = 8, padR = 8;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
-  const NE = matrix.length, NS = matrix[0].length;
-  let lo = Infinity, hi = -Infinity;
-  for (const row of matrix) for (const v of row) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const diverge = opts.diverge;
-  if (diverge) { const m = Math.max(Math.abs(lo), Math.abs(hi)) || 1; lo = -m; hi = m; }
-  const span = (hi - lo) || 1;
-  const cw = plotW / NS, ch = plotH / NE;
-  for (let i = 0; i < NE; i++) for (let j = 0; j < NS; j++) {
-    const v = matrix[i][j];
-    const t = diverge ? v / Math.max(Math.abs(lo), Math.abs(hi)) : (v - lo) / span;
-    const [r,g,b] = (diverge ? diverging(t) : viridis(t));
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.fillRect(padL + j * cw, padT + i * ch, cw + 0.6, ch + 0.6);
+
+// ---- 3D surface renderer (no deps: orthographic + painter's algorithm) -----
+// Each canvas keeps its own orientation + last grid so drag-rotate can redraw.
+const surf3d = new Map();   // canvas -> {yaw, pitch, grid, diverge}
+
+function resample(grid, fy, fx) {
+  // Bilinear upsample so coarse (5×21) grids render as a smooth sheet.
+  const NE = grid.length, NS = grid[0].length;
+  const NY = (NE - 1) * fy + 1, NX = (NS - 1) * fx + 1;
+  const out = [];
+  for (let y = 0; y < NY; y++) {
+    const gy = y / fy, i0 = Math.min(Math.floor(gy), NE - 2), ty = gy - i0;
+    const row = [];
+    for (let x = 0; x < NX; x++) {
+      const gx = x / fx, j0 = Math.min(Math.floor(gx), NS - 2), tx = gx - j0;
+      row.push(grid[i0][j0] * (1-ty)*(1-tx) + grid[i0][j0+1] * (1-ty)*tx +
+               grid[i0+1][j0] * ty*(1-tx)  + grid[i0+1][j0+1] * ty*tx);
+    }
+    out.push(row);
   }
-  ctx.fillStyle = '#8a93a8'; ctx.font = '10px ui-monospace, monospace'; ctx.textAlign = 'center';
-  const xstep = Math.ceil(NS / 7);
-  for (let j = 0; j < NS; j += xstep) ctx.fillText(Math.round(strikes[j]), padL + (j + .5) * cw, H - padB + 14);
-  ctx.fillText('strike', padL + plotW / 2, H - 4);
-  ctx.textAlign = 'right';
-  const ystep = Math.ceil(NE / 6) || 1;
-  for (let i = 0; i < NE; i += ystep) {
-    const e = expiries[i];
-    const lbl = (e && e.days != null) ? (e.days + 'd') : (e && e.date ? String(e.date).slice(5) : i);
-    ctx.fillText(lbl, padL - 8, padT + (i + .5) * ch + 3);
-  }
-  ctx.save(); ctx.translate(12, padT + plotH / 2); ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center'; ctx.fillText('expiry', 0, 0); ctx.restore();
-  return { lo, hi };
+  return out;
 }
 
-// ---- state -----------------------------------------------------
+function draw3D(canvas, grid, opts = {}) {
+  let st = surf3d.get(canvas);
+  if (!st) { st = { yaw: -0.65, pitch: 0.42 }; surf3d.set(canvas, st); }
+  st.grid = grid; st.opts = opts;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth || canvas.parentElement.clientWidth;
+  const H = canvas.clientHeight || canvas.parentElement.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const g = (opts.upsample === false) ? grid
+          : resample(grid, Math.max(1, Math.round(24 / grid.length)), Math.max(1, Math.round(48 / grid[0].length)));
+  const NE = g.length, NS = g[0].length;
+
+  let lo = Infinity, hi = -Infinity;
+  for (const row of g) for (const v of row) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (opts.diverge) { const m = Math.max(Math.abs(lo), Math.abs(hi)) || 1; lo = -m; hi = m; }
+  const span = (hi - lo) || 1;
+
+  const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
+  const cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+  const zAmp = opts.zAmp || 0.55;
+
+  // world: x = strike, y = expiry (depth), z = value (up). Rotate yaw about Z,
+  // pitch about X; orthographic project (X, -Z), depth = Y for sorting.
+  const proj = (x, y, z) => {
+    const x1 = x * cy - y * sy, y1 = x * sy + y * cy;
+    const y2 = y1 * cp - z * sp, z2 = y1 * sp + z * cp;
+    return [x1, -z2, y2];
+  };
+
+  // fit-to-canvas scale via the 8 bounding-box corners
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const X of [-1, 1]) for (const Y of [-1, 1]) for (const Z of [-zAmp, zAmp]) {
+    const [px, py] = proj(X, Y, Z);
+    minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+    minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+  }
+  const pad = opts.mini ? 6 : 26;
+  const scale = Math.min((W - 2*pad) / (maxX - minX || 1), (H - 2*pad) / (maxY - minY || 1));
+  const ox = W/2 - (minX + maxX)/2 * scale;
+  const oy = H/2 - (minY + maxY)/2 * scale;
+
+  const quads = [];
+  const P = [];   // projected vertices [NE][NS]
+  for (let i = 0; i < NE; i++) {
+    P.push([]);
+    for (let j = 0; j < NS; j++) {
+      const x = (j / (NS - 1) - 0.5) * 2;
+      const y = (i / (NE - 1) - 0.5) * 2;
+      const tn = (g[i][j] - lo) / span;
+      const z = (tn - 0.5) * 2 * zAmp;
+      const [px, py, d] = proj(x, y, z);
+      P[i].push([ox + px * scale, oy + py * scale, d, tn]);
+    }
+  }
+  for (let i = 0; i < NE - 1; i++) for (let j = 0; j < NS - 1; j++) {
+    const a = P[i][j], b = P[i][j+1], c = P[i+1][j+1], d = P[i+1][j];
+    quads.push({
+      pts: [a, b, c, d],
+      depth: (a[2] + b[2] + c[2] + d[2]) / 4,
+      t: (a[3] + b[3] + c[3] + d[3]) / 4,
+    });
+  }
+  quads.sort((q1, q2) => q2.depth - q1.depth);   // far first
+
+  for (const q of quads) {
+    const tt = opts.diverge ? q.t * 2 - 1 : q.t;
+    const [r, gg, b] = opts.diverge ? diverging(tt) : viridis(tt);
+    // cheap depth-cue shading so the sheet reads as 3D
+    const shade = 0.72 + 0.28 * (1 - (q.depth + 1.6) / 3.2);
+    ctx.fillStyle = `rgb(${Math.round(r*shade)},${Math.round(gg*shade)},${Math.round(b*shade)})`;
+    ctx.strokeStyle = 'rgba(7,8,12,0.35)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(q.pts[0][0], q.pts[0][1]);
+    for (let k = 1; k < 4; k++) ctx.lineTo(q.pts[k][0], q.pts[k][1]);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+
+  if (!opts.mini) {
+    // axis hints at the front corners
+    ctx.fillStyle = '#8a93a8'; ctx.font = '10px ui-monospace, monospace';
+    const { strikes, days } = opts;
+    if (strikes && strikes.length) {
+      const c0 = P[NE-1][0], c1 = P[NE-1][NS-1], c2 = P[0][NS-1];
+      ctx.textAlign = 'center';
+      ctx.fillText(`K ${Math.round(strikes[0])}`, c0[0], c0[1] + 16);
+      ctx.fillText(`K ${Math.round(strikes[strikes.length-1])}`, c1[0], c1[1] + 16);
+      if (days && days.length)
+        ctx.fillText(`${days[days.length-1]}d`, c2[0], c2[1] - 8);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillText(`${fmt(lo, 3)} … ${fmt(hi, 3)}`, 10, H - 10);
+  }
+}
+
+function attachRotate(canvas) {
+  let dragging = false, lx = 0, ly = 0;
+  canvas.addEventListener('mousedown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const st = surf3d.get(canvas);
+    if (!st || !st.grid) return;
+    st.yaw += (e.clientX - lx) * 0.008;
+    st.pitch = Math.max(0.05, Math.min(1.35, st.pitch + (e.clientY - ly) * 0.006));
+    lx = e.clientX; ly = e.clientY;
+    draw3D(canvas, st.grid, st.opts);
+  });
+}
+
+// ---- state -----------------------------------------------------------------
 let MODELS = [];
 let SESSION = null;
 
@@ -326,9 +437,10 @@ function modelBadge(m) {
 }
 function fillModelSelects() {
   const opts = MODELS.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-  for (const id of ['#surfaceModel', '#inModel', '#cmpA', '#cmpB']) $(id).innerHTML = opts;
-  $('#surfaceModel').value = 'bs'; $('#inModel').value = 'bs';
-  $('#cmpA').value = 'binomial'; $('#cmpB').value = 'bs';
+  for (const id of ['#s3model', '#inModel']) $(id).innerHTML = opts;
+  const trainedNN = MODELS.find(m => m.trained && m.type !== 'bs' && m.type !== 'binomial');
+  $('#s3model').value = trainedNN ? trainedNN.name : 'mlp';
+  $('#inModel').value = 'bs';
 }
 function renderModelList() {
   const host = $('#modelList'); host.innerHTML = '';
@@ -375,7 +487,9 @@ async function trainModel(name) {
     });
     log.textContent = 'done ✓ ' + log.textContent;
     await loadModels();
-    if ($('#surfaceModel').value === name) renderSurface();
+    // a newly trained net is the most interesting thing to look at
+    $('#s3model').value = name; $('#s3kind').value = 'residual';
+    render3DLab();
   } catch (e) { log.innerHTML = `<span class="err">${e.message}</span>`; }
   finally { btn.disabled = false; }
 }
@@ -414,26 +528,93 @@ async function loadSession() {
 async function loadModels() {
   MODELS = await invoke('models.list');
   renderModelList();
-  const prevSurf = $('#surfaceModel').value, prevA = $('#cmpA').value, prevB = $('#cmpB').value;
+  const prevModel = $('#s3model').value;
   fillModelSelects();
-  if (prevSurf) $('#surfaceModel').value = prevSurf;
-  if (prevA) $('#cmpA').value = prevA;
-  if (prevB) $('#cmpB').value = prevB;
+  if (prevModel && MODELS.some(m => m.name === prevModel)) $('#s3model').value = prevModel;
 }
 
-async function renderSurface() {
-  const model = $('#surfaceModel').value;
-  $('#surfaceErr').textContent = ''; $('#surfaceSub').textContent = `Rendering ${model}…`;
+// ---- 3D lab ---------------------------------------------------------------
+async function render3DLab() {
+  const kind = $('#s3kind').value;
+  const model = $('#s3model').value;
+  $('#s3err').textContent = '';
   try {
-    const s = await invoke('surface', { model });
-    const { lo, hi } = drawHeatmap($('#surfaceCanvas'), s.prices, s.strikes, s.expiries);
-    paintColorbar($('#colorbar'), viridis);
-    $('#cbMin').textContent = fmt(lo, 1); $('#cbMax').textContent = fmt(hi, 1);
-    $('#surfaceSub').textContent = `${model} · call price · S=${fmt(s.S,2)}`;
+    const r = await invoke('surface3d', { kind, model });
+    draw3D($('#s3canvas'), r.z, {
+      diverge: r.diverge, strikes: r.strikes, days: r.expiry_days,
+    });
+    $('#s3sub').textContent = `${r.label} · ${r.units === 'iv' ? 'implied vol' : 'price'} · drag to rotate`;
   } catch (e) {
-    $('#surfaceErr').textContent = e.message;
-    $('#surfaceSub').textContent = 'Call price across strike × expiry.';
+    $('#s3err').textContent = e.message;
   }
+}
+
+async function loadPCA() {
+  $('#pcaErr').textContent = '';
+  try {
+    const r = await invoke('analysis.pca', {});
+    const host = $('#pcaModes'); host.innerHTML = '';
+    const names = ['level shift', 'skew tilt', 'smile flex'];
+    r.modes.forEach((m, k) => {
+      const row = document.createElement('div'); row.className = 'pca-mode';
+      const corr = m.spot_corr;
+      row.innerHTML = `
+        <div class="canvas-fill"><canvas class="surf" id="pca${k}"></canvas></div>
+        <div class="pca-cap">
+          <b>PC${k+1}</b> <span class="muted">· ${names[k] || 'mode'}</span><br>
+          ${(m.explained * 100).toFixed(1)}% of variance<br>
+          <span class="muted">ρ(spot)</span> <b class="mono ${corr >= 0 ? '' : ''}">${fmt(corr, 2)}</b>
+        </div>`;
+      host.appendChild(row);
+    });
+    // draw after layout so canvases have size
+    requestAnimationFrame(() => {
+      r.modes.forEach((m, k) => {
+        const c = document.getElementById('pca' + k);
+        draw3D(c, m.z, { diverge: true, mini: true, upsample: true });
+        attachRotate(c);
+      });
+    });
+    $('#pcaSub').textContent = `${r.n_frames} frames decomposed into dominant deformation patterns.`;
+  } catch (e) { $('#pcaErr').textContent = e.message; }
+}
+
+async function loadCorrelation() {
+  $('#corrErr').textContent = '';
+  try {
+    const r = await invoke('analysis.correlation', {});
+    const canvas = $('#corrCanvas'), ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.clientWidth || canvas.parentElement.clientWidth;
+    const H = canvas.clientHeight || canvas.parentElement.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const F = r.features, n = F.length;
+    const padL = 44, padT = 4, padB = 16, padR = 4;
+    const cw = (W - padL - padR) / n, ch = (H - padT - padB) / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const v = r.matrix[i][j];
+      const [rr, gg, bb] = diverging(v);
+      ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+      ctx.fillRect(padL + j * cw, padT + i * ch, cw - 1, ch - 1);
+      if (cw > 26) {
+        ctx.fillStyle = Math.abs(v) > 0.55 ? '#0a0c13' : '#e6e9f2';
+        ctx.font = '9px ui-monospace, monospace'; ctx.textAlign = 'center';
+        ctx.fillText(v.toFixed(2), padL + (j + .5) * cw, padT + (i + .55) * ch);
+      }
+    }
+    ctx.fillStyle = '#8a93a8'; ctx.font = '9px ui-monospace, monospace';
+    for (let i = 0; i < n; i++) {
+      ctx.textAlign = 'right';
+      ctx.fillText(F[i], padL - 5, padT + (i + .6) * ch);
+      ctx.textAlign = 'center';
+      ctx.fillText(F[i].slice(0, 3), padL + (i + .5) * cw, H - 4);
+    }
+    const chips = Object.entries(r.spot_corr)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 4)
+      .map(([f, v]) => `<span class="chip">${f} ↔ spot <b class="${v >= 0 ? 'pos' : 'neg'} mono">${fmt(v, 2)}</b></span>`);
+    $('#corrSpot').innerHTML = chips.join('');
+  } catch (e) { $('#corrErr').textContent = e.message; }
 }
 
 async function priceOption() {
@@ -448,25 +629,7 @@ async function priceOption() {
   } catch (e) { $('#priceErr').textContent = e.message; $('#priceVal').textContent = '—'; }
 }
 
-async function compare() {
-  const a = $('#cmpA').value, b = $('#cmpB').value;
-  $('#cmpErr').textContent = '';
-  if (a === b) { $('#cmpErr').textContent = 'Pick two different models.'; return; }
-  try {
-    const r = await invoke('compare', { models: [a, b] });
-    const key = `${a}-${b}`, alt = `${b}-${a}`;
-    let diff = r.differences[key];
-    if (!diff && r.differences[alt]) diff = r.differences[alt].map(row => row.map(v => -v));
-    if (!diff) throw new Error('no difference available for this pair');
-    const exp = SESSION ? SESSION.expiries : r.expiries.map(d => ({ date: d }));
-    const { lo, hi } = drawHeatmap($('#cmpCanvas'), diff, r.strikes, exp, { diverge: true });
-    paintColorbar($('#cmpColorbar'), t => diverging(t * 2 - 1));
-    $('#cmpMin').textContent = fmt(lo, 1); $('#cmpMax').textContent = fmt(hi, 1);
-    $('#cmpSub').textContent = `${a} − ${b} · max |Δ| ${fmt(Math.max(Math.abs(lo),Math.abs(hi)),2)}`;
-  } catch (e) { $('#cmpErr').textContent = e.message; }
-}
-
-// ---- IBKR connection UI ----------------------------------------
+// ---- IBKR connection UI -----------------------------------------------------
 function applyIbStatus(s) {
   const dot = $('#ibDot'), txt = $('#ibStatusText');
   const connected = s && s.connected;
@@ -505,13 +668,15 @@ async function ibStartStream() {
 
 let _refreshTimer = null;
 function liveRefresh() {
-  // Coalesce rapid snapshot events into one dashboard refresh.
+  // Coalesce rapid snapshot events into one lab-wide refresh.
   if (_refreshTimer) return;
   _refreshTimer = setTimeout(async () => {
     _refreshTimer = null;
     await loadSession();
-    await renderSurface();
-  }, 300);
+    await render3DLab();
+    await loadPCA();
+    await loadCorrelation();
+  }, 400);
 }
 
 function wireEvents() {
@@ -533,15 +698,20 @@ function wireEvents() {
 }
 
 // wire controls
-$('#surfaceRefresh').addEventListener('click', renderSurface);
-$('#surfaceModel').addEventListener('change', renderSurface);
+$('#s3render').addEventListener('click', render3DLab);
+$('#s3kind').addEventListener('change', render3DLab);
+$('#s3model').addEventListener('change', render3DLab);
 $('#priceBtn').addEventListener('click', priceOption);
-$('#cmpBtn').addEventListener('click', compare);
 $('#ibConnect').addEventListener('click', () => ibConnect());
 $('#ibTest').addEventListener('click', () => ibConnect('selftest'));
 $('#ibDisconnect').addEventListener('click', async () => applyIbStatus(await invoke('ibkr.disconnect')));
 $('#ibStart').addEventListener('click', ibStartStream);
 $('#ibStop').addEventListener('click', async () => { await invoke('ibkr.stream.stop'); applyIbStatus(await invoke('ibkr.status')); });
+attachRotate($('#s3canvas'));
+window.addEventListener('resize', () => {
+  const st = surf3d.get($('#s3canvas'));
+  if (st && st.grid) draw3D($('#s3canvas'), st.grid, st.opts);
+});
 
 (async function init() {
   wireEvents();
@@ -552,9 +722,10 @@ $('#ibStop').addEventListener('click', async () => { await invoke('ibkr.stream.s
   try { applyIbStatus(await invoke('ibkr.status')); } catch (_) {}
   await loadModels().catch(() => {});
   await loadSession().catch(() => {});
-  await renderSurface().catch(() => {});
+  await render3DLab().catch(() => {});
+  await loadPCA().catch(() => {});
+  await loadCorrelation().catch(() => {});
   await priceOption().catch(() => {});
-  await compare().catch(() => {});
 })();
 </script>
 </body>

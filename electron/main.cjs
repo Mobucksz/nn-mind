@@ -33,6 +33,16 @@ let sidecar = null;
 let nextId = 1;
 const pending = new Map();        // id -> {resolve, reject}
 
+// Events can fire (e.g. python missing -> spawn error) before the renderer
+// has loaded; buffer them and flush once the page is ready so failures are
+// never silently lost.
+let rendererReady = false;
+const eventQueue = [];
+function sendEvent(msg) {
+  if (mainWindow && rendererReady) mainWindow.webContents.send('event', msg);
+  else eventQueue.push(msg);
+}
+
 function startSidecar() {
   const py = resolvePython();
   sidecar = spawn(py, ['backend/sidecar.py'], {
@@ -42,14 +52,10 @@ function startSidecar() {
   });
 
   sidecar.on('error', (err) => {
-    if (mainWindow) mainWindow.webContents.send('event', {
-      event: 'sidecar.error', data: { message: `Failed to start Python (${py}): ${err.message}` },
-    });
+    sendEvent({ event: 'sidecar.error', data: { message: `Failed to start Python (${py}): ${err.message}` } });
   });
   sidecar.on('exit', (code) => {
-    if (mainWindow) mainWindow.webContents.send('event', {
-      event: 'sidecar.exit', data: { code },
-    });
+    if (code !== 0 && code !== null) sendEvent({ event: 'sidecar.exit', data: { code } });
   });
 
   const rl = readline.createInterface({ input: sidecar.stdout });
@@ -59,7 +65,7 @@ function startSidecar() {
     let msg;
     try { msg = JSON.parse(line); } catch { return; }
     if (msg.event) {
-      if (mainWindow) mainWindow.webContents.send('event', msg);
+      sendEvent(msg);
       return;
     }
     const p = pending.get(msg.id);
@@ -100,7 +106,11 @@ function createWindow() {
     },
   });
   mainWindow.loadFile(path.join(ROOT, 'web', 'index.html'));
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererReady = true;
+    while (eventQueue.length) mainWindow.webContents.send('event', eventQueue.shift());
+  });
+  mainWindow.on('closed', () => { mainWindow = null; rendererReady = false; });
 }
 
 app.on('ready', () => {

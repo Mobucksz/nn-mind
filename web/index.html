@@ -198,6 +198,47 @@
     backdrop-filter: blur(10px);
   }
   #toast.show { display: block; }
+
+  /* startup connect modal — the "login" moment */
+  .modal-back {
+    position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+    background: rgba(2,3,7,.62); backdrop-filter: blur(8px);
+  }
+  .modal-back.hidden { display: none; }
+  .connect-modal { width: 400px; padding: 26px 28px; display: flex; flex-direction: column; gap: 14px; }
+  .connect-modal .mark { font-size: 26px; }
+  .connect-modal h1 { margin: 0; font-size: 16px; font-weight: 700; }
+  .connect-modal .lead { font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .connect-modal .ib-grid { grid-template-columns: 1.6fr 1fr 1fr; }
+  .connect-modal .actions { display: flex; gap: 8px; align-items: center; }
+  .connect-modal .actions .btn.primary { flex: 1; padding: 10px; font-size: 13px; }
+  .connect-modal .skip { text-align: center; font-size: 11px; color: var(--muted); cursor: pointer; }
+  .connect-modal .skip:hover { color: var(--text); }
+  .connect-modal .err { min-height: 14px; }
+
+  /* fatal backend failure — full screen, not a broken-looking shell */
+  #fatal {
+    position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+    background: rgba(2,3,7,.88); backdrop-filter: blur(10px);
+  }
+  #fatal.show { display: flex; }
+  .fatal-box { width: 480px; padding: 26px 28px; display: flex; flex-direction: column; gap: 12px; }
+  .fatal-box h1 { margin: 0; font-size: 16px; color: var(--bad); }
+  .fatal-box .detail { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .fatal-box code { display: block; background: rgba(5,8,14,.8); border: 1px solid var(--glass-line);
+    border-radius: 8px; padding: 9px 12px; font-size: 11.5px; color: var(--text); user-select: text; }
+
+  /* responsive: keep HUD readable on narrow windows */
+  @media (max-width: 1280px) {
+    .hud.dock { width: 280px; }
+    .hud.ibkr { width: 270px; }
+    .hud.timeline { left: 300px; right: 312px; transform: none; width: auto; min-width: 0; }
+    .hud.caption { display: none; }
+  }
+  @media (max-width: 1080px) {
+    .brandbar .tagline { display: none; }
+    .hud.timeline { left: 16px; right: 312px; }
+  }
 </style>
 </head>
 <body>
@@ -316,6 +357,42 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- startup connect: the login moment -->
+<div class="modal-back hidden" id="connectModal">
+  <div class="connect-modal glass">
+    <div class="mark">nn-mind</div>
+    <h1>Connect to Interactive Brokers</h1>
+    <div class="lead">
+      Start <b>IB Gateway</b> or <b>TWS</b> and log in there first — IBKR's API design means
+      your username &amp; password go into IBKR's own app, never into third-party software.
+      nn-mind then connects to it locally:
+    </div>
+    <div class="ib-grid">
+      <div><label>Host</label><input id="cmHost" class="mono" value="127.0.0.1"></div>
+      <div><label>Port</label><input id="cmPort" class="mono" value="7497"></div>
+      <div><label>Client</label><input id="cmClient" class="mono" value="17"></div>
+    </div>
+    <div class="hint">7497 paper TWS · 7496 live TWS · 4001/4002 IB Gateway</div>
+    <div class="actions">
+      <button class="btn primary" id="cmConnect">Connect</button>
+      <button class="btn ghost" id="cmTest" title="Synthetic feed, no broker needed — always labelled test.">Test feed</button>
+    </div>
+    <div class="err" id="cmErr"></div>
+    <div class="skip" id="cmSkip">skip — work with recorded sessions</div>
+  </div>
+</div>
+
+<!-- backend dead: explain instead of looking broken -->
+<div id="fatal">
+  <div class="fatal-box glass">
+    <h1>Python backend failed to start</h1>
+    <div class="detail" id="fatalMsg"></div>
+    <div class="detail">Usual fix — install the Python packages, then relaunch:</div>
+    <code id="fatalFix">python -m pip install numpy scipy torch ib_insync</code>
+    <div class="detail">Launch via <b>launch-nn-mind.bat</b> — it checks all of this for you and prints what's wrong.</div>
+  </div>
+</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -811,8 +888,48 @@ async function ibConnect(host) {
     ? { host: 'selftest', port: 0, client_id: 0 }
     : { host: $('#ibHost').value.trim(), port: +$('#ibPort').value, client_id: +$('#ibClient').value };
   $('#ibStatusText').textContent = 'Connecting…'; $('#ibDot').className = 'dot warn';
-  try { applyIbStatus(await invoke('ibkr.connect', payload)); }
-  catch (e) { applyIbStatus({ connected: false, error: e.message }); }
+  try {
+    const s = await invoke('ibkr.connect', payload);
+    applyIbStatus(s);
+    return s;
+  } catch (e) { applyIbStatus({ connected: false, error: e.message }); return { connected: false, error: e.message }; }
+}
+
+// ── startup connect modal (the login moment) ────────────────────
+function hideConnectModal() { $('#connectModal').classList.add('hidden'); }
+async function modalConnect(host) {
+  $('#cmErr').textContent = '';
+  // mirror modal fields into the side panel so both stay consistent
+  if (host !== 'selftest') {
+    $('#ibHost').value = $('#cmHost').value;
+    $('#ibPort').value = $('#cmPort').value;
+    $('#ibClient').value = $('#cmClient').value;
+  }
+  const btn = host === 'selftest' ? $('#cmTest') : $('#cmConnect');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  const s = await ibConnect(host);
+  btn.disabled = false; btn.textContent = host === 'selftest' ? 'Test feed' : 'Connect';
+  if (s && s.connected) {
+    hideConnectModal();
+    // start streaming right away so the user immediately sees live data
+    await invoke('ibkr.stream.start', {
+      symbol: $('#ibSymbol').value.trim() || 'SPY',
+      interval_sec: +$('#ibInterval').value || 5,
+      num_expiries: 5, strikes_each_side: 10,
+    }).catch(() => {});
+    applyIbStatus(await invoke('ibkr.status').catch(() => null));
+  } else {
+    $('#cmErr').textContent = (s && s.error) ? s.error :
+      'Could not reach IB Gateway/TWS — is it running and logged in, with the API enabled?';
+  }
+}
+$('#cmConnect').addEventListener('click', () => modalConnect());
+$('#cmTest').addEventListener('click', () => modalConnect('selftest'));
+$('#cmSkip').addEventListener('click', hideConnectModal);
+
+function showFatal(msg) {
+  $('#fatalMsg').textContent = msg || 'The compute sidecar exited unexpectedly.';
+  $('#fatal').className = 'show';
 }
 $('#ibConnect').addEventListener('click', () => ibConnect());
 $('#ibTest').addEventListener('click', () => ibConnect('selftest'));
@@ -846,8 +963,11 @@ function wireEvents() {
       $('#ibSnaps').textContent = msg.data.snapshots;
       $('#ibLast').textContent = (msg.data.t || '').slice(11, 19) || '—';
       liveRefresh();
-    } else if (msg.event === 'sidecar.error' || msg.event === 'sidecar.exit') {
-      toast(msg.event === 'sidecar.exit' ? `Python sidecar exited (code ${msg.data.code}) — restart the app.` : msg.data.message);
+    } else if (msg.event === 'sidecar.error') {
+      showFatal(msg.data.message);
+    } else if (msg.event === 'sidecar.exit') {
+      showFatal(`Python backend exited with code ${msg.data.code}. ` +
+                `Run launch-nn-mind.bat from a Command Prompt to see the full error.`);
     }
   });
 }
@@ -857,7 +977,10 @@ function wireEvents() {
   wireEvents();
   requestAnimationFrame(drawScene);
   if (!window.api) toast('Backend bridge unavailable — open via the nn-mind app, not a browser.');
-  try { applyIbStatus(await invoke('ibkr.status')); } catch (_) {}
+  let status = null;
+  try { status = await invoke('ibkr.status'); applyIbStatus(status); } catch (_) {}
+  // The login moment: if no broker connection, lead with the connect screen.
+  if (!status || !status.connected) $('#connectModal').classList.remove('hidden');
   await loadModels().catch(() => {});
   await loadSession().catch(() => {});
   await loadFrames().catch(() => {});

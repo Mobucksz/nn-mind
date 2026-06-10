@@ -27,8 +27,10 @@ class LSTMNet(nn.Module):
         out, _ = self.lstm(x)
         # Use output from last time step -> predict all expiries
         out = self.regressor(out[:, -1, :].unsqueeze(1))
-        # Expand back to full sequence length
-        return out.expand(-1, x.size(1), -1)
+        # Expand back to full sequence length, then drop the trailing feature
+        # dim so the shape is [batch, seq_len] to match the IV term-structure
+        # targets the trainer produces (otherwise the loss broadcast crashes).
+        return out.expand(-1, x.size(1), -1).squeeze(-1)
 
 
 class LSTMPricer(OptionPricer):

@@ -96,6 +96,27 @@ def start_training(model_type: str, epochs: int = 50, lr: float = 0.001,
 
     def _run():
         try:
+            # The ensemble is a meta-model: it doesn't gradient-train, it stacks
+            # the already-trained neural nets. "Training" it just assembles them.
+            if model_type == "ensemble":
+                members = [m for n, m in _model_cache.items()
+                           if n not in ("ensemble", "bs", "binomial")
+                           and getattr(m, "is_trained", False)]
+                if not members:
+                    raise ValueError("Ensemble needs at least one trained net — "
+                                     "train mlp or transformer first")
+                _model_cache["ensemble"] = create_pricer("ensemble", models=list(members))
+                with _lock:
+                    job = _jobs[job_id]
+                    job["status"] = "completed"
+                    job["progress"] = 100
+                    job["current_epoch"] = epochs
+                    job["loss"] = 0.0
+                    job["history"] = [{"epoch": 1, "loss": 0.0, "val_loss": 0.0, "lr": 0.0}]
+                    job["completed_at"] = datetime.now().isoformat()
+                    job["members"] = [m.name for m in members]
+                return
+
             with _lock:
                 _jobs[job_id]["status"] = "loading_data"
             # Load session data

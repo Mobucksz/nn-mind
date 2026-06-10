@@ -33,6 +33,17 @@ from src.worker import (
 from data.loader import latest_session, list_sessions, load_session
 from models import create_pricer
 
+# Keep training from saturating every core. Torch otherwise grabs all CPUs at
+# 100%, which starves Electron's renderer + this IPC loop and makes the whole
+# app freeze ("stops") while a model trains. The datasets here are tiny, so a
+# small thread count trains in well under a second and leaves the UI smooth.
+try:
+    import torch
+    _nt = os.environ.get("NN_MIND_TORCH_THREADS")
+    torch.set_num_threads(int(_nt) if _nt else 1)
+except Exception:
+    pass
+
 # stdout is the wire — protect it with a lock and never print() to it elsewhere.
 _out_lock = threading.Lock()
 
